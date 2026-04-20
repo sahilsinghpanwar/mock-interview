@@ -155,7 +155,7 @@ import {
 import { doc, setDoc, getDoc, serverTimestamp } from "firebase/firestore";
 import { auth, db, googleProvider, githubProvider } from "./firebase";
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+// Types
 
 export interface AuthResult {
   success: boolean;
@@ -175,7 +175,7 @@ export interface UserProfile {
   role?: "user" | "admin";
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+// Helpers
 
 async function saveUserToFirestore(
   credential: UserCredential,
@@ -204,12 +204,10 @@ async function saveUserToFirestore(
     }
   } catch (error) {
     console.error("Firestore error:", error);
-    // Silently fail - user is still authenticated in Firebase Auth
-    // You may want to retry or notify the user later
   }
 }
 
-// ─── Sign Up ──────────────────────────────────────────────────────────────────
+// Sign Up
 
 export async function signUp(
   name: string,
@@ -236,7 +234,7 @@ export async function signUp(
   }
 }
 
-// ─── Sign In ──────────────────────────────────────────────────────────────────
+// Sign In
 
 export async function signIn(
   email: string,
@@ -257,7 +255,7 @@ export async function signIn(
   }
 }
 
-// ─── Sign Out ─────────────────────────────────────────────────────────────────
+// Sign Out
 
 export async function signOut(): Promise<AuthResult> {
   try {
@@ -268,7 +266,7 @@ export async function signOut(): Promise<AuthResult> {
   }
 }
 
-// ─── Google OAuth ─────────────────────────────────────────────────────────────
+// Google OAuth
 
 export async function signInWithGoogle(): Promise<AuthResult> {
   try {
@@ -285,7 +283,7 @@ export async function signInWithGoogle(): Promise<AuthResult> {
   }
 }
 
-// ─── GitHub OAuth ─────────────────────────────────────────────────────────────
+// GitHub OAuth
 
 export async function signInWithGithub(): Promise<AuthResult> {
   try {
@@ -302,7 +300,7 @@ export async function signInWithGithub(): Promise<AuthResult> {
   }
 }
 
-// ─── Get User Profile ─────────────────────────────────────────────────────────
+// Get User Profile
 
 export async function getUserProfile(
   uid: string
@@ -315,7 +313,7 @@ export async function getUserProfile(
   }
 }
 
-// ─── Error Messages ───────────────────────────────────────────────────────────
+// Error Messages
 
 function getFirebaseErrorMessage(error: unknown): string {
   if (error !== null && typeof error === "object" && "code" in error) {

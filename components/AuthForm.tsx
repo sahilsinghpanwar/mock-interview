@@ -31,7 +31,7 @@ import {
   SignUpFormValues,
 } from "@/lib/validations";
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+//  Types
 
 type AuthFormType = "sign-in" | "sign-up";
 
@@ -39,7 +39,7 @@ interface AuthFormProps {
   type: AuthFormType;
 }
 
-// ─── Password Input ───────────────────────────────────────────────────────────
+//  Password Input
 
 function PasswordInput({
   id,
@@ -75,7 +75,7 @@ function PasswordInput({
   );
 }
 
-// ─── Form Field ───────────────────────────────────────────────────────────────
+//  Form Field
 
 function FormField({
   id,
@@ -104,7 +104,7 @@ function FormField({
   );
 }
 
-// ─── Password Strength ────────────────────────────────────────────────────────
+//  Password Strength
 
 function PasswordStrength({ password }: { password: string }) {
   if (!password) return null;
@@ -147,7 +147,7 @@ function PasswordStrength({ password }: { password: string }) {
   );
 }
 
-// ─── Main Component ───────────────────────────────────────────────────────────
+//  Main Component
 
 export default function AuthForm({ type }: AuthFormProps) {
   const router = useRouter();
@@ -159,14 +159,14 @@ export default function AuthForm({ type }: AuthFormProps) {
   } | null>(null);
   const [oauthLoading, setOauthLoading] = useState<"google" | "github" | null>(null);
 
-  // ── Sign-In Form ──────────────────────────────────────────────────────────
+  //  Sign-In Form 
 
   const signInForm = useForm<SignInFormValues>({
     resolver: zodResolver(signInSchema),
     defaultValues: { email: "", password: "" },
   });
 
-  // ── Sign-Up Form ──────────────────────────────────────────────────────────
+  // Sign-Up Form
 
   const signUpForm = useForm<SignUpFormValues>({
     resolver: zodResolver(signUpSchema),
@@ -175,14 +175,14 @@ export default function AuthForm({ type }: AuthFormProps) {
 
   const passwordValue = useWatch({ control: signUpForm.control, name: "password" });
 
-  // ── Handlers ─────────────────────────────────────────────────────────────
+  // Handlers
 
   async function handleSignIn(data: SignInFormValues) {
     setServerMessage(null);
     const result = await signIn(data.email, data.password);
     if (result.success) {
       setServerMessage({ type: "success", text: result.message });
-      router.push("/");
+      router.push("/dashboard");
       router.refresh();
     } else {
       setServerMessage({ type: "error", text: result.message });
@@ -194,7 +194,7 @@ export default function AuthForm({ type }: AuthFormProps) {
     const result = await signUp(data.name, data.email, data.password);
     if (result.success) {
       setServerMessage({ type: "success", text: result.message });
-      router.push("/");
+      router.push("/dashboard");
       router.refresh();
     } else {
       setServerMessage({ type: "error", text: result.message });
@@ -206,7 +206,7 @@ export default function AuthForm({ type }: AuthFormProps) {
     setOauthLoading("google");
     const result = await signInWithGoogle();
     if (result.success) {
-      router.push("/");
+      router.push("/dashboard");
       router.refresh();
     } else {
       setServerMessage({ type: "error", text: result.message });
@@ -219,7 +219,7 @@ export default function AuthForm({ type }: AuthFormProps) {
     setOauthLoading("github");
     const result = await signInWithGithub();
     if (result.success) {
-      router.push("/");
+      router.push("/dashboard");
       router.refresh();
     } else {
       setServerMessage({ type: "error", text: result.message });
@@ -231,7 +231,6 @@ export default function AuthForm({ type }: AuthFormProps) {
     ? signInForm.formState.isSubmitting
     : signUpForm.formState.isSubmitting;
 
-  // ── Render ────────────────────────────────────────────────────────────────
 
   return (
     <Card className="w-full max-w-md shadow-2xl border-border/50 backdrop-blur-sm bg-card/95">

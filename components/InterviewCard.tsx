@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+// Types
 
 export interface InterviewCardProps {
   id: string;
@@ -29,7 +29,7 @@ export interface InterviewCardProps {
   score?: number;
 }
 
-// ─── Config ───────────────────────────────────────────────────────────────────
+// Config
 
 const STATUS_CONFIG: Record<
   "pending" | "in-progress" | "completed",
@@ -58,7 +58,7 @@ const DIFFICULTY_COLOR: Record<string, string> = {
   Senior: "text-rose-400",
 };
 
-// ─── Component ────────────────────────────────────────────────────────────────
+// Component
 
 export default function InterviewCard({
   id,

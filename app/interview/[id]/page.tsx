@@ -1,37 +1,46 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import {
   getInterview,
   formatInterviewDate,
+  createInterview,
   Interview,
 } from "@/lib/interview.actions";
 import VoiceInterviewPanel from "@/components/VoiceInterviewPanel";
+import InterviewPageSkeleton from "@/components/InterviewPageSkeleton";
+import InterviewFeedback from "@/components/InterviewFeedback";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
 import AuthGuard from "@/components/AuthGuard";
 import {
   CheckCircle2,
   Mic,
-  Hash,
   Briefcase,
   BarChart3,
   Calendar,
   ArrowLeft,
+  RotateCcw,
+  Loader2,
+  Headphones,
+  Hash,
 } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
-import { Loader2, AlertTriangle } from "lucide-react";
+import { AlertTriangle } from "lucide-react";
+import { useAuth } from "@/app/hooks/useAuth";
 
 export default function InterviewPage() {
   const params = useParams<{ id: string }>();
   const id = params?.id;
+  const router = useRouter();
+  const { user } = useAuth();
   const [interview, setInterview] = useState<Interview | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [retaking, setRetaking] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -66,12 +75,30 @@ export default function InterviewPage() {
     };
   }, [id]);
 
+  async function handleRetake() {
+    if (!interview || !user) return;
+    setRetaking(true);
+    try {
+      const result = await createInterview(
+        user.uid,
+        interview.role,
+        interview.type,
+        interview.difficulty,
+        interview.numQuestions,
+        interview.focusArea ?? "General"
+      );
+      if (result.success && result.interviewId) {
+        router.push(`/interview/${result.interviewId}`);
+      }
+    } catch {
+      setRetaking(false);
+    }
+  }
+
   if (loading) {
     return (
       <AuthGuard>
-        <div className="min-h-screen flex items-center justify-center bg-background">
-          <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
-        </div>
+        <InterviewPageSkeleton />
       </AuthGuard>
     );
   }
@@ -97,7 +124,7 @@ export default function InterviewPage() {
                     <Link href="/interview/new">Create New Interview</Link>
                   </Button>
                   <Button variant="outline" asChild>
-                    <Link href="/">Back to Dashboard</Link>
+                    <Link href="/dashboard">Back to Dashboard</Link>
                   </Button>
                 </div>
               </CardContent>
@@ -108,6 +135,51 @@ export default function InterviewPage() {
     );
   }
 
+  const isCompleted = interview.status === "completed" && interview.feedbackSummary;
+
+  
+  if (isCompleted) {
+    return (
+      <AuthGuard>
+        <div className="min-h-screen bg-background py-10 px-4">
+          <div className="max-w-3xl mx-auto space-y-6">
+            {/* Back */}
+            <Button variant="ghost" size="sm" asChild className="-ml-2">
+              <Link href="/dashboard">
+                <ArrowLeft className="w-4 h-4 mr-1" />
+                Back to dashboard
+              </Link>
+            </Button>
+
+            {/* Full-page professional feedback */}
+            <InterviewFeedback interview={interview} />
+
+            {/* Actions */}
+            <div className="flex gap-3 animate-fade-in" style={{ animationDelay: "500ms" }}>
+              <Button
+                variant="default"
+                onClick={handleRetake}
+                disabled={retaking}
+                className="flex-1 h-11 gap-2"
+              >
+                {retaking ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <RotateCcw className="w-4 h-4" />
+                )}
+                Retake with Same Settings
+              </Button>
+              <Button variant="outline" asChild className="flex-1 h-11">
+                <Link href="/interview/new">New Interview</Link>
+              </Button>
+            </div>
+          </div>
+        </div>
+      </AuthGuard>
+    );
+  }
+
+
   return (
     <AuthGuard>
       <div className="min-h-screen bg-background py-10 px-4">
@@ -115,29 +187,29 @@ export default function InterviewPage() {
 
           {/* Back */}
           <Button variant="ghost" size="sm" asChild className="-ml-2">
-            <Link href="/">
+            <Link href="/dashboard">
               <ArrowLeft className="w-4 h-4 mr-1" />
               Back to dashboard
             </Link>
           </Button>
 
           {/* Header */}
-          <div className="space-y-1">
+          <div className="space-y-1 animate-fade-in">
             <div className="flex items-center gap-2 text-emerald-400">
               <CheckCircle2 className="w-5 h-5" />
               <span className="text-sm font-medium">Interview Ready</span>
             </div>
             <h1 className="text-3xl font-bold tracking-tight">
-              Your interview is set up
+              Ready to begin your interview
             </h1>
             <p className="text-muted-foreground">
-              Review the questions, then start the voice interview when you are
-              ready.
+              The AI interviewer will ask you {interview.questions.length} questions
+              one by one. Answer naturally — there are no right or wrong answers.
             </p>
           </div>
 
           {/* Meta badges */}
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-2 animate-fade-in" style={{ animationDelay: "100ms" }}>
             <Badge variant="secondary" className="gap-1">
               <Briefcase className="w-3 h-3" />
               {interview.role}
@@ -168,45 +240,53 @@ export default function InterviewPage() {
             </Badge>
           </div>
 
-          {/* Questions */}
-          <Card className="border-border/60">
+          {/* Interview tips card (replaces the question list) */}
+          <Card className="border-border/60 bg-card/50 animate-fade-in" style={{ animationDelay: "200ms" }}>
             <CardHeader className="pb-3">
               <CardTitle className="text-base flex items-center gap-2">
-                <Mic className="w-4 h-4 text-primary" />
-                Generated Questions
+                <Headphones className="w-4 h-4 text-primary" />
+                How this works
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-0">
-              {interview.questions.map((q, i) => (
-                <div key={q.id}>
-                  <div className="flex gap-3 py-4">
-                    <span className="shrink-0 w-6 h-6 rounded-full bg-primary/10 text-primary text-xs font-bold flex items-center justify-center mt-0.5">
-                      {i + 1}
-                    </span>
-                    <p className="text-sm text-foreground leading-relaxed">
-                      {q.text}
-                    </p>
-                  </div>
-                  {i < interview.questions.length - 1 && <Separator />}
-                </div>
-              ))}
+            <CardContent>
+              <div className="grid gap-3">
+                <TipRow num="1" text={`Click "Start Interview" below — the AI interviewer will greet you and begin.`} />
+                <TipRow num="2" text="Listen to each question carefully, then answer verbally. Take your time." />
+                <TipRow num="3" text="The AI will move to the next question after your answer. You can skip if needed." />
+                <TipRow num="4" text={`When done, click "End & Get Feedback" to receive your score and detailed analysis.`} />
+              </div>
             </CardContent>
           </Card>
 
-          <VoiceInterviewPanel
-            interview={interview}
-            onFeedbackSaved={(patch) =>
-              setInterview((prev) => (prev ? { ...prev, ...patch } : prev))
-            }
-          />
+          {/* Voice panel */}
+          <div className="animate-fade-in" style={{ animationDelay: "300ms" }}>
+            <VoiceInterviewPanel
+              interview={interview}
+              onFeedbackSaved={(patch) =>
+                setInterview((prev) => (prev ? { ...prev, ...patch } : prev))
+              }
+            />
+          </div>
 
-          <div className="flex gap-3">
+          <div className="flex gap-3 animate-fade-in" style={{ animationDelay: "400ms" }}>
             <Button variant="outline" asChild className="flex-1 h-11">
-              <Link href="/interview/new">New Setup</Link>
+              <Link href="/interview/new">Different Setup</Link>
             </Button>
           </div>
         </div>
       </div>
     </AuthGuard>
+  );
+}
+
+
+function TipRow({ num, text }: { num: string; text: string }) {
+  return (
+    <div className="flex gap-3 items-start">
+      <span className="shrink-0 w-6 h-6 rounded-full bg-primary/10 text-primary text-xs font-bold flex items-center justify-center mt-0.5">
+        {num}
+      </span>
+      <p className="text-sm text-muted-foreground leading-relaxed">{text}</p>
+    </div>
   );
 }

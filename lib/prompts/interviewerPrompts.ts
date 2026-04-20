@@ -1,6 +1,5 @@
 import type { Interview } from "@/lib/interview.actions";
 
-/** Domain hints for Gemini (web, mobile, etc.) */
 export function buildDomainContextLine(focusArea: string, role: string): string {
   const focus = focusArea.trim();
   if (focus && focus !== "General") {
@@ -9,10 +8,7 @@ export function buildDomainContextLine(focusArea: string, role: string): string 
   return `Role / stack context: ${role}. Infer domain (e.g. web, Android, backend) from this title when choosing topics.`;
 }
 
-/**
- * Prompt for generating interview questions (JSON array of strings).
- * Kept in one place so API routes and docs stay aligned.
- */
+
 export function buildQuestionGenerationPrompt(input: {
   role: string;
   type: string;
@@ -49,9 +45,6 @@ Example shape:
 ["Question one?", "Question two?"]`;
 }
 
-/**
- * System prompt for the Vapi voice agent: uses the same questions your app generated via Gemini.
- */
 export function buildVapiVoiceSystemPrompt(interview: Interview): string {
   const numbered = interview.questions
     .map((q, i) => `${i + 1}. ${q.text}`)

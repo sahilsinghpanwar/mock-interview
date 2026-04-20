@@ -1,9 +1,5 @@
-/**
- * Interview System Type Definitions
- * Comprehensive types for managing mock interviews with VAPI voice integration
- */
 
-// ─── User Interview Level ────────────────────────────────────────────────────
+//  User Interview Level
 
 export type InterviewLevel = "junior" | "mid" | "senior";
 
@@ -39,7 +35,7 @@ export const LEVEL_CONFIGS: Record<InterviewLevel, LevelConfig> = {
   },
 };
 
-// ─── Technical Field ────────────────────────────────────────────────────────
+// Technical Field 
 
 export type TechnicalField =
   | "web-development"
@@ -165,96 +161,3 @@ export const FIELD_CONFIGS: Record<TechnicalField, FieldConfig> = {
     ],
   },
 };
-
-// ─── Interview Session ────────────────────────────────────────────────────
-
-export interface InterviewQuestion {
-  id: string;
-  questionText: string;
-  category: string;
-  difficulty: InterviewLevel;
-  expectedKeyPoints: string[];
-  followUpQuestions?: string[];
-  timeLimit?: number; // in seconds
-}
-
-export interface UserAnswer {
-  questionId: string;
-  answerText: string;
-  audioUrl?: string;
-  answerDuration: number; // in seconds
-  timestamp: Date;
-}
-
-export interface AnswerFeedback {
-  questionId: string;
-  score: number; // 0-100
-  strengths: string[];
-  areasForImprovement: string[];
-  detailedFeedback: string;
-  keyPointsDetected: string[];
-}
-
-export interface InterviewSession {
-  id: string;
-  userId: string;
-  field: TechnicalField;
-  level: InterviewLevel;
-  status: "not_started" | "in_progress" | "completed" | "paused";
-  questions: InterviewQuestion[];
-  userAnswers: UserAnswer[];
-  feedback: AnswerFeedback[];
-  startTime?: Date;
-  endTime?: Date;
-  duration?: number; // in seconds
-  overallScore?: number; // 0-100
-  vapiCallId?: string; // VAPI call ID for reference
-}
-
-export interface InterviewBriefFeedback {
-  overallScore: number;
-  performanceLevel: "poor" | "needs-improvement" | "good" | "excellent";
-  summary: string;
-  strengths: string[];
-  areasForImprovement: string[];
-  recommendations: string[];
-  comparisonWithLevel: string;
-  nextSteps: string[];
-}
-
-// ─── VAPI Integration ────────────────────────────────────────────────────
-
-export interface VAPIConfig {
-  apiKey: string;
-  assistantId: string;
-  phoneNumber?: string;
-}
-
-export interface VAPIMessage {
-  type: "text" | "audio";
-  content: string;
-  timestamp: Date;
-}
-
-export interface VAPICallStatus {
-  status: "active" | "ended" | "failed";
-  callId: string;
-  duration?: number;
-  transcript?: string;
-  recordingUrl?: string;
-}
-
-// ─── Gemini Integration ────────────────────────────────────────────────────
-
-export interface GeminiConfig {
-  apiKey: string;
-  model: string;
-}
-
-export interface GeneratedQuestion {
-  questionText: string;
-  category: string;
-  difficulty: InterviewLevel;
-  expectedKeyPoints: string[];
-  followUpQuestions?: string[];
-}

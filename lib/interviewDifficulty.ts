@@ -1,4 +1,3 @@
-/** Question count is fixed by seniority level (product rule). */
 export function getQuestionCountForDifficulty(
   difficulty: string
 ): 5 | 10 | 15 {

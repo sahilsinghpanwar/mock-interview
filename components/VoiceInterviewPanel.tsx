@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
-import { Loader2, Mic, PhoneOff, Sparkles } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Loader2, Mic, PhoneOff, Clock, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -12,11 +12,40 @@ import {
   type Interview,
 } from "@/lib/interview.actions";
 import { isVapiConfigured } from "@/lib/vapiConfig";
+import AudioWaveform from "@/components/AudioWaveform";
+import { cn } from "@/lib/utils";
 
 type Props = {
   interview: Interview;
   onFeedbackSaved: (patch: Partial<Interview>) => void;
 };
+
+const MIN_CALL_DURATION_SECONDS = 30;
+
+// Timer Hook
+
+function useTimer(active: boolean) {
+  const [seconds, setSeconds] = useState(0);
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    if (active) {
+      setSeconds(0);
+      intervalRef.current = setInterval(() => setSeconds((s) => s + 1), 1000);
+    } else {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    }
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    };
+  }, [active]);
+
+  const mins = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+  return { formatted: `${mins}:${secs.toString().padStart(2, "0")}`, seconds };
+}
+
+// Component
 
 export default function VoiceInterviewPanel({
   interview,
@@ -29,10 +58,34 @@ export default function VoiceInterviewPanel({
   const [busy, setBusy] = useState(false);
   const finalizedRef = useRef(false);
   const transcriptRef = useRef("");
+  const callStartTimeRef = useRef<number>(0);
+  const timer = useTimer(active);
 
   const finalizeSession = useCallback(
     async (rawTranscript: string) => {
       if (finalizedRef.current) return;
+
+    
+      const elapsed = (Date.now() - callStartTimeRef.current) / 1000;
+      const hasContent = rawTranscript.trim().length > 20;
+
+      if (elapsed < MIN_CALL_DURATION_SECONDS && !hasContent) {
+        setError(
+          `The call ended too quickly (${Math.round(elapsed)}s) with no meaningful conversation. ` +
+          `Please try again — make sure your microphone is working and wait for the interviewer to ask questions.`
+        );
+        setActive(false);
+        return;
+      }
+
+      if (!hasContent) {
+        setError(
+          "No transcript was captured. Please check your microphone permissions and try again."
+        );
+        setActive(false);
+        return;
+      }
+
       finalizedRef.current = true;
       setBusy(true);
       setError("");
@@ -98,7 +151,7 @@ export default function VoiceInterviewPanel({
   async function handleStart() {
     if (!isVapiConfigured()) {
       setError(
-        "Add NEXT_PUBLIC_VAPI_PUBLIC_KEY and NEXT_PUBLIC_VAPI_ASSISTANT_ID to your environment."
+        "Add NEXT_PUBLIC_VAPI_WEB_TOKEN and NEXT_PUBLIC_VAPI_ASSISTANT_ID to your .env.local, then restart the dev server."
       );
       return;
     }
@@ -108,6 +161,7 @@ export default function VoiceInterviewPanel({
     transcriptRef.current = "";
     setTranscript("");
     setActive(true);
+    callStartTimeRef.current = Date.now();
 
     await updateInterviewStatus(interview.id, "in-progress");
 
@@ -137,36 +191,54 @@ export default function VoiceInterviewPanel({
   const configured = isVapiConfigured();
 
   return (
-    <Card className="border-border/60">
+    <Card
+      className={cn(
+        "border-border/60 transition-all duration-300",
+        active && "border-violet-500/40 shadow-lg shadow-violet-500/10 animate-glow"
+      )}
+    >
       <CardHeader className="pb-3">
         <CardTitle className="text-base flex items-center gap-2">
           <Mic className="w-4 h-4 text-primary" />
-          Voice interview (Vapi)
+          Voice Interview
+          {active && (
+            <div className="flex items-center gap-2 ml-auto">
+              <AudioWaveform active={active} barCount={5} />
+              <Badge variant="secondary" className="gap-1 font-mono text-xs tabular-nums">
+                <Clock className="w-3 h-3" />
+                {timer.formatted}
+              </Badge>
+            </div>
+          )}
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         {!configured && (
           <p className="text-sm text-amber-600 dark:text-amber-400">
-            Add <code className="text-xs">NEXT_PUBLIC_VAPI_PUBLIC_KEY</code> and{" "}
+            Add <code className="text-xs">NEXT_PUBLIC_VAPI_WEB_TOKEN</code> and{" "}
             <code className="text-xs">NEXT_PUBLIC_VAPI_ASSISTANT_ID</code> to{" "}
             <code className="text-xs">.env.local</code>, then restart the dev
             server.
           </p>
         )}
 
+        {/* Buttons */}
         <div className="flex flex-wrap gap-2">
           <Button
             type="button"
             onClick={() => void handleStart()}
             disabled={active || busy || !configured}
-            className="gap-2"
+            className={cn(
+              "gap-2",
+              !active && !busy && configured && "bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500"
+            )}
           >
             {busy ? (
               <Loader2 className="w-4 h-4 animate-spin" />
             ) : (
               <Mic className="w-4 h-4" />
             )}
-            Start interview
+            {busy ? "Generating feedback…" : active ? "Call in progress…" : "Start Interview"}
           </Button>
           <Button
             type="button"
@@ -176,71 +248,42 @@ export default function VoiceInterviewPanel({
             className="gap-2"
           >
             <PhoneOff className="w-4 h-4" />
-            End &amp; get feedback
+            End &amp; Get Feedback
           </Button>
-          {active && (
-            <Badge variant="secondary" className="animate-pulse">
-              Live
-            </Badge>
-          )}
         </div>
 
         {error && (
-          <p className="text-sm text-destructive whitespace-pre-wrap">{error}</p>
+          <div className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/5 p-3">
+            <AlertTriangle className="w-4 h-4 text-destructive shrink-0 mt-0.5" />
+            <p className="text-sm text-destructive whitespace-pre-wrap">{error}</p>
+          </div>
         )}
 
-        <div>
-          <p className="text-xs font-medium text-muted-foreground mb-1">
-            Live transcript
-          </p>
-          <div className="rounded-lg border border-border bg-muted/30 p-3 min-h-[100px] max-h-[220px] overflow-y-auto text-sm whitespace-pre-wrap">
-            {transcript || (
-              <span className="text-muted-foreground">
-                Transcript appears as you speak…
-              </span>
-            )}
+        {/* Processing state */}
+        {busy && (
+          <div className="flex flex-col items-center justify-center py-8 gap-3">
+            <Loader2 className="w-8 h-8 animate-spin text-primary" />
+            <p className="text-sm text-muted-foreground text-center">
+              Analyzing your interview performance…
+              <br />
+              <span className="text-xs">This usually takes 5–10 seconds.</span>
+            </p>
           </div>
-        </div>
+        )}
 
-        {interview.status === "completed" && interview.feedbackSummary && (
-          <div className="rounded-lg border border-primary/20 bg-primary/5 p-4 space-y-2">
-            <div className="flex items-center gap-2 text-sm font-semibold">
-              <Sparkles className="w-4 h-4 text-primary" />
-              Feedback
-              {typeof interview.score === "number" && (
-                <Badge variant="secondary">Score {interview.score}/100</Badge>
+        {/* Live transcript */}
+        {active && (
+          <div>
+            <p className="text-xs font-medium text-muted-foreground mb-1">
+              Live transcript
+            </p>
+            <div className="rounded-lg border border-border bg-muted/30 p-3 min-h-[120px] max-h-[250px] overflow-y-auto text-sm whitespace-pre-wrap">
+              {transcript || (
+                <span className="text-muted-foreground italic">
+                  Waiting for the interviewer to speak…
+                </span>
               )}
             </div>
-            <p className="text-sm">{interview.feedbackSummary}</p>
-            {interview.strengths && interview.strengths.length > 0 && (
-              <div>
-                <p className="text-xs font-medium text-muted-foreground">
-                  Strengths
-                </p>
-                <ul className="list-disc list-inside text-sm">
-                  {interview.strengths.map((s) => (
-                    <li key={s}>{s}</li>
-                  ))}
-                </ul>
-              </div>
-            )}
-            {interview.improvements && interview.improvements.length > 0 && (
-              <div>
-                <p className="text-xs font-medium text-muted-foreground">
-                  Improvements
-                </p>
-                <ul className="list-disc list-inside text-sm">
-                  {interview.improvements.map((s) => (
-                    <li key={s}>{s}</li>
-                  ))}
-                </ul>
-              </div>
-            )}
-            {interview.feedbackDetail && (
-              <p className="text-sm text-muted-foreground">
-                {interview.feedbackDetail}
-              </p>
-            )}
           </div>
         )}
       </CardContent>

@@ -1,0 +1,229 @@
+# Vapi Voice Agent Setup Guide for Mock Interview App
+
+## How It Works — Architecture
+
+Your codebase already has 90% of the integration built. Here's how the pieces connect:
+
+```mermaid
+sequenceDiagram
+    participant U as User (Browser)
+    participant App as Next.js App
+    participant Vapi as Vapi Cloud
+    participant Gemini as Gemini API
+
+    Note over App: Step 1: User creates interview
+    U->>App: Select field + level → Start Interview
+    App->>Gemini: Generate interview questions
+    Gemini-->>App: Returns questions array
+    App-->>U: Redirect to /interview/[id]
+
+    Note over U: Step 2: User clicks "Start Interview" voice button
+    U->>Vapi: vapi.start(assistantId, overrides)
+    Note over Vapi: Vapi uses your assistant config<br/>+ runtime system prompt override<br/>with the generated questions
+
+    Vapi-->>U: Voice call starts (WebRTC)
+    U->>Vapi: Candidate speaks answers
+    Vapi-->>U: AI interviewer asks next question
+    Vapi-->>App: Transcript events (message)
+
+    Note over U: Step 3: Call ends
+    Vapi-->>App: call-end event
+    App->>Gemini: Send transcript for feedback
+    Gemini-->>App: Score + feedback JSON
+    App-->>U: Show results
+```
+
+> [!IMPORTANT]
+> Your code already has `useVapiInterview.ts`, `VoiceInterviewPanel.tsx`, and `vapiConfig.ts` ready. You just need to **create the assistant on Vapi's dashboard** and **paste the Assistant ID** into your `.env.local`.
+
+---
+
+## Step 1: Create a Vapi Account
+
+1. Go to **[dashboard.vapi.ai](https://dashboard.vapi.ai/)**
+2. Click **Sign Up** (you can use Google/GitHub)
+3. You'll land on the Vapi Dashboard
+
+> [!TIP]
+> Vapi gives you **free credits** when you sign up — enough to test the voice interview flow multiple times.
+
+---
+
+## Step 2: Get Your Public API Key
+
+1. In the dashboard, click **⚙️ Organization Settings** (bottom-left sidebar)
+2. Go to the **API Keys** section
+3. Copy your **Public Key** — it starts with something like `e947e935-...`
+
+> [!NOTE]  
+> You already have this in your `.env.local` as `NEXT_PUBLIC_VAPI_WEB_TOKEN=e947e935-92b4-4eb8-8dbf-d3ffc3ea9a1a`. If this is still valid, you can skip this step. If it's expired or wrong, replace it.
+
+---
+
+## Step 3: Create the Mock Interviewer Assistant
+
+This is the main step. You're creating the "brain" of the voice agent.
+
+### 3.1 — Open the Assistants Page
+
+1. In the dashboard sidebar, click **Assistants**
+2. Click **+ Create Assistant**
+3. Choose **"Blank"** template (not any pre-made one)
+
+### 3.2 — Configure the Model
+
+In the **Model** section:
+
+| Setting | Value |
+|---------|-------|
+| **Provider** | `Google` |
+| **Model** | `gemini-2.0-flash` (or `gemini-1.5-flash`) |
+| **Temperature** | `0.7` |
+
+> [!IMPORTANT]
+> Your code overrides the system prompt at runtime (see `useVapiInterview.ts` line 67-73). The dashboard system prompt is just a fallback. But set a reasonable default anyway.
+
+### 3.3 — Set the System Prompt (Default/Fallback)
+
+Paste this into the **System Prompt** field:
+
+```
+You are a professional mock interviewer. You conduct technical interviews in a professional, supportive manner.
+
+Behavior:
+- Greet the candidate briefly, state the role and interview type, then start asking questions.
+- After each answer, give a short acknowledgment (one sentence), then move to the next question.
+- Keep your spoken turns concise.
+- End professionally after the last question: thank them and say the session is complete.
+
+Tone: supportive, neutral, interview-realistic.
+```
+
+### 3.4 — Set the First Message
+
+In the **First Message** field, enter:
+
+```
+Hi there! I'm your mock interviewer. We'll get started shortly — let me set up the session.
+```
+
+> [!NOTE]
+> This first message is also overridden at runtime by your code (`useVapiInterview.ts` line 68) with a message specific to the interview role/level. So this is just a fallback.
+
+### 3.5 — Configure the Voice
+
+In the **Voice** section:
+
+| Setting | Value |
+|---------|-------|
+| **Provider** | `11labs` (ElevenLabs) or `Vapi` (default) |
+| **Voice** | Pick any professional-sounding voice. Recommended: `Rachel` or `Adam` from ElevenLabs, or the default Vapi voice |
+
+> [!TIP]
+> The default Vapi voice works fine for testing. You can upgrade to ElevenLabs later for more natural sound.
+
+### 3.6 — Configure the Transcriber
+
+In the **Transcriber** section:
+
+| Setting | Value |
+|---------|-------|
+| **Provider** | `Deepgram` (default) |
+| **Model** | `nova-2` |
+| **Language** | `en` |
+
+### 3.7 — Save / Publish
+
+Click **Publish** (or **Save**) at the top-right.
+
+### 3.8 — Copy the Assistant ID
+
+After saving:
+1. The URL will look like: `dashboard.vapi.ai/assistants/abc12345-...`
+2. Copy the assistant ID from the URL, OR
+3. Click the **⋯ menu** → **Copy ID**
+
+The ID looks like: `abc12345-6789-4def-abcd-1234567890ab`
+
+---
+
+## Step 4: Update Your `.env.local`
+
+Open your `.env.local` file and replace the placeholder:
+
+```diff
+ NEXT_PUBLIC_VAPI_WEB_TOKEN=e947e935-92b4-4eb8-8dbf-d3ffc3ea9a1a
+-NEXT_PUBLIC_VAPI_ASSISTANT_ID=your_vapi_assistant_id_here
++NEXT_PUBLIC_VAPI_ASSISTANT_ID=<paste-your-real-assistant-id-here>
+```
+
+> [!WARNING]
+> After changing `.env.local`, you **must restart the dev server** (`Ctrl+C` then `npm run dev`).
+
+---
+
+## Step 5: Test the Voice Interview
+
+1. Go to your app → create a new interview (select field + level)
+2. You'll land on the interview page `/interview/[id]`
+3. You should see the **"Voice interview (Vapi)"** card with:
+   - **Start interview** button (should be enabled now)
+   - **End & get feedback** button
+4. Click **Start interview**
+5. Allow microphone access when the browser asks
+6. The AI interviewer will greet you and start asking questions
+7. Answer the questions, then click **End & get feedback**
+8. Wait for Gemini to analyze the transcript and show your score
+
+---
+
+## How the Runtime Override Works
+
+Your code does something clever — it doesn't rely on the assistant's fixed config. Instead, it **overrides** the system prompt and first message at call time:
+
+```typescript
+// From useVapiInterview.ts
+const overrides = {
+  firstMessage: `Hi — I'm your interviewer today for the ${interview.role} 
+    ${interview.type} session at ${interview.difficulty} level...`,
+  model: {
+    provider: "google",
+    model: "gemini-2.5-flash",
+    messages: [{ role: "system", content: systemPrompt }],
+    // ↑ This systemPrompt contains the actual questions from Gemini
+  },
+};
+
+void client.start(assistantId, overrides);
+```
+
+This means the dashboard assistant is a **shell** — it provides the voice, transcriber, and infrastructure, while your app injects the actual interview content at runtime.
+
+---
+
+## Troubleshooting
+
+| Issue | Solution |
+|-------|----------|
+| "Missing NEXT_PUBLIC_VAPI_WEB_TOKEN" error | Check `.env.local` has the correct public key. Restart dev server. |
+| "Missing NEXT_PUBLIC_VAPI_ASSISTANT_ID" error | You haven't replaced the placeholder with your real assistant ID. |
+| Start button is disabled | `isVapiConfigured()` returns false — both env vars must be set. |
+| Call starts but no audio | Allow microphone permission. Check browser console for WebRTC errors. |
+| "Failed to connect" | Your Vapi account may have run out of free credits. Check dashboard billing. |
+| Voice agent speaks but doesn't ask the right questions | That's expected for now — the system prompt override should fix this. Check console for errors in `vapi.start()`. |
+| Transcript is empty | Make sure the transcriber is configured (Deepgram nova-2). Check if `message` events fire in console. |
+
+---
+
+## Summary Checklist
+
+- [ ] Vapi account created at [dashboard.vapi.ai](https://dashboard.vapi.ai)
+- [ ] Public API key confirmed in `.env.local` (`NEXT_PUBLIC_VAPI_WEB_TOKEN`)
+- [ ] Assistant created on dashboard (Blank template, Google/Gemini model)
+- [ ] System prompt set (default/fallback)
+- [ ] First message set
+- [ ] Voice configured (default or ElevenLabs)
+- [ ] Assistant ID copied
+- [ ] `NEXT_PUBLIC_VAPI_ASSISTANT_ID` updated in `.env.local`
+- [ ] Dev server restarted
+- [ ] Tested voice interview flow end-to-end

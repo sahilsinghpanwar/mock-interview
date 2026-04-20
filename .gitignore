@@ -39,3 +39,32 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+.env.local
+.env.*.local
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build artifacts
+.turbo/
+dist/
+
+# Package managers
+.npm/
+.yarn-error.log
+
+# Development
+.cursor/
+.cursorignore
+
+# ESLint cache
+.eslintcache

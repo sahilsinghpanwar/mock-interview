@@ -1,19 +1,19 @@
 "use client";
 
-import { useEffect } from "react";
-import { useRouter } from "next/navigation";
 import { useAuth } from "@/app/hooks/useAuth";
+import LandingPage from "@/components/LandingPage";
+import { redirect } from "next/navigation";
+import { useEffect } from "react";
 import { Loader2 } from "lucide-react";
 
-export default function AuthGuard({ children }: { children: React.ReactNode }) {
+export default function RootPage() {
   const { user, loading } = useAuth();
-  const router = useRouter();
 
   useEffect(() => {
-    if (!loading && !user) {
-      router.replace("/sign-in");
+    if (!loading && user) {
+      redirect("/dashboard");
     }
-  }, [user, loading, router]);
+  }, [user, loading]);
 
   if (loading) {
     return (
@@ -23,7 +23,7 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
     );
   }
 
-  if (!user) return null;
+  if (user) return null; 
 
-  return <>{children}</>;
+  return <LandingPage />;
 }

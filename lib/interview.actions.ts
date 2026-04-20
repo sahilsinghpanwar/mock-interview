@@ -12,7 +12,7 @@ import {
 } from "firebase/firestore";
 import { db } from "./firebase";
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+// Types
 
 export interface InterviewQuestion {
   id: string;
@@ -28,15 +28,13 @@ export interface Interview {
   numQuestions: number;
   questions: InterviewQuestion[];
   status: "pending" | "in-progress" | "completed";
-  createdAt: string; // always ISO string — safe for React rendering
-  /** e.g. Web, Android, Backend — steers Gemini + voice agent context */
+  createdAt: string; 
   focusArea?: string;
   score?: number;
   feedbackSummary?: string;
   feedbackDetail?: string;
   strengths?: string[];
   improvements?: string[];
-  /** Condensed transcript for feedback / history */
   transcriptSummary?: string;
 }
 
@@ -46,7 +44,7 @@ export interface CreateInterviewResult {
   interviewId?: string;
 }
 
-// ─── Generate Questions via Gemini ────────────────────────────────────────────
+// Generate Questions via Gemini
 
 async function generateQuestions(
   role: string,
@@ -81,7 +79,7 @@ async function generateQuestions(
   }));
 }
 
-// ─── Create Interview ─────────────────────────────────────────────────────────
+// Create Interview
 
 export async function createInterview(
   userId: string,
@@ -130,7 +128,7 @@ export async function createInterview(
   }
 }
 
-// ─── Get Single Interview ─────────────────────────────────────────────────────
+// Get Single Interview
 
 export async function getInterview(id: string): Promise<Interview | null> {
   try {
@@ -152,14 +150,14 @@ export async function getInterview(id: string): Promise<Interview | null> {
   }
 }
 
-// ─── Get All Interviews for a User ───────────────────────────────────────────
+// Get All Interviews for a User
 
 export async function getUserInterviews(userId: string): Promise<Interview[]> {
   try {
     let snapshot;
 
     try {
-      // Preferred query (fast, server-side sorting) - requires composite index.
+      
       const q = query(
         collection(db, "interviews"),
         where("userId", "==", userId),
@@ -167,7 +165,6 @@ export async function getUserInterviews(userId: string): Promise<Interview[]> {
       );
       snapshot = await getDocs(q);
     } catch {
-      // Fallback query avoids index requirement; sort client-side.
       const fallbackQuery = query(
         collection(db, "interviews"),
         where("userId", "==", userId)
@@ -209,7 +206,7 @@ export async function getUserInterviews(userId: string): Promise<Interview[]> {
   }
 }
 
-// ─── Update Interview Status ──────────────────────────────────────────────────
+// Update Interview Status
 
 export async function updateInterviewStatus(
   interviewId: string,
@@ -251,22 +248,18 @@ export async function saveInterviewFeedback(
   }
 }
 
-// ─── Normalize Date ───────────────────────────────────────────────────────────
-// Handles ISO string, Firestore Timestamp, Date object — always returns ISO string
-
 function normalizeDate(value: unknown): string {
   if (!value) return new Date().toISOString();
   if (typeof value === "string") return value;
   if (value instanceof Date) return value.toISOString();
   if (value instanceof Timestamp) return value.toDate().toISOString();
-  // Firestore Timestamp-like object (plain object with toDate)
   if (typeof value === "object" && "toDate" in value) {
     return (value as { toDate: () => Date }).toDate().toISOString();
   }
   return new Date().toISOString();
 }
 
-// ─── Format Date for Display ──────────────────────────────────────────────────
+// Format Date for Display
 
 export function formatInterviewDate(isoString: string): string {
   try {

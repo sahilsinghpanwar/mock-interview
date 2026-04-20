@@ -11,7 +11,6 @@ import React, {
 import { User, onAuthStateChanged } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 
-// ─── Types ────────────────────────────────────────────────────────────────────
 
 interface AuthContextType {
   user: User | null;
@@ -19,7 +18,6 @@ interface AuthContextType {
   isAuthenticated: boolean;
 }
 
-// ─── Context ──────────────────────────────────────────────────────────────────
 
 const AuthContext = createContext<AuthContextType>({
   user: null,
@@ -27,7 +25,7 @@ const AuthContext = createContext<AuthContextType>({
   isAuthenticated: false,
 });
 
-// ─── Provider ─────────────────────────────────────────────────────────────────
+
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -48,7 +46,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 }
 
-// ─── Hook ─────────────────────────────────────────────────────────────────────
 
 export function useAuth(): AuthContextType {
   const ctx = useContext(AuthContext);
