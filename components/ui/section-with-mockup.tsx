@@ -63,9 +63,9 @@ const SectionWithMockup: React.FC<SectionWithMockupProps> = ({
                             </h2>
                         </div>
 
-                        <p className="text-[#868f97] text-sm md:text-[15px] leading-6">
+                        <div className="text-[#868f97] text-sm md:text-[15px] leading-6">
                             {description}
-                        </p>
+                        </div>
                     </motion.div>
 
                     {/* App mockup/Image Content */}
