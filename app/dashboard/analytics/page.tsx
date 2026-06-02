@@ -6,8 +6,6 @@ import { useAuth } from "@/app/hooks/useAuth";
 import { getUserInterviews, formatInterviewDate, Interview } from "@/lib/interview.actions";
 import AuthGuard from "@/components/AuthGuard";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   ArrowLeft,
@@ -28,42 +26,36 @@ function StatCard({
   label,
   value,
   sub,
-  gradient,
 }: {
   icon: React.ElementType;
   label: string;
   value: string;
   sub?: string;
-  gradient: string;
 }) {
   return (
-    <Card className="border-border/60 overflow-hidden">
-      <CardContent className="pt-5 pb-4">
-        <div className="flex items-start justify-between">
-          <div>
-            <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider">
-              {label}
-            </p>
-            <p className="text-2xl font-bold mt-1 tabular-nums">{value}</p>
-            {sub && (
-              <p className="text-xs text-muted-foreground mt-0.5">{sub}</p>
-            )}
-          </div>
-          <div
-            className={cn(
-              "w-10 h-10 rounded-xl flex items-center justify-center bg-gradient-to-br",
-              gradient
-            )}
-          >
-            <Icon className="w-5 h-5 text-white" />
-          </div>
+    <div className="relative overflow-hidden rounded-3xl border border-dashed border-neutral-200 dark:border-neutral-800 bg-neutral-50/40 dark:bg-neutral-950/40 backdrop-blur-md p-6 flex flex-col justify-between hover:border-neutral-400 dark:hover:border-neutral-700 hover:scale-[1.01] transition-all duration-300 group min-h-[120px]">
+      {/* Blueprint Grid pattern in background */}
+      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_right,#80808008_1px,transparent_1px),linear-gradient(to_bottom,#80808008_1px,transparent_1px)] bg-[size:20px_20px] opacity-35 dark:opacity-20" />
+
+      <div className="flex items-start justify-between relative z-10 w-full">
+        <div className="space-y-1">
+          <p className="text-[10px] font-bold uppercase tracking-widest text-violet-655 dark:text-violet-400">
+            {label}
+          </p>
+          <p className="text-3xl font-black text-neutral-900 dark:text-white tracking-tight tabular-nums mt-1">{value}</p>
+          {sub && (
+            <p className="text-xs text-neutral-600 dark:text-neutral-400 font-light">{sub}</p>
+          )}
         </div>
-      </CardContent>
-    </Card>
+        <div className="w-8 h-8 rounded-lg bg-neutral-100 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 flex items-center justify-center shrink-0">
+          <Icon className="w-4 h-4 text-violet-650 dark:text-violet-400" />
+        </div>
+      </div>
+    </div>
   );
 }
 
-// ─── Bar Chart (pure CSS) ─────────────────────────────────────────────────────
+// ─── Bar Chart (Telemetry CSS Style) ──────────────────────────────────────────
 
 function ScoreChart({ interviews }: { interviews: Interview[] }) {
   const completed = interviews
@@ -73,7 +65,7 @@ function ScoreChart({ interviews }: { interviews: Interview[] }) {
 
   if (completed.length === 0) {
     return (
-      <div className="flex items-center justify-center py-12 text-sm text-muted-foreground">
+      <div className="flex items-center justify-center py-16 text-xs text-neutral-600 dark:text-neutral-400 font-light italic">
         Complete interviews to see your score trends
       </div>
     );
@@ -82,30 +74,38 @@ function ScoreChart({ interviews }: { interviews: Interview[] }) {
   const maxScore = 100;
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-end gap-2 h-40">
+    <div className="space-y-6 pt-4">
+      <div className="flex items-end gap-2 h-44 border-b border-dashed border-neutral-200 dark:border-neutral-900 pb-2 relative">
+        {/* Grid helper lines in chart background */}
+        <div className="absolute inset-0 flex flex-col justify-between pointer-events-none opacity-20">
+          <div className="border-b border-dashed border-neutral-300 dark:border-neutral-850 w-full h-0 text-[8px] text-neutral-500 font-mono pt-0.5">100</div>
+          <div className="border-b border-dashed border-neutral-300 dark:border-neutral-850 w-full h-0 text-[8px] text-neutral-500 font-mono">75</div>
+          <div className="border-b border-dashed border-neutral-300 dark:border-neutral-850 w-full h-0 text-[8px] text-neutral-500 font-mono">50</div>
+          <div className="border-b border-dashed border-neutral-300 dark:border-neutral-850 w-full h-0 text-[8px] text-neutral-500 font-mono">25</div>
+        </div>
+
         {completed.map((interview, i) => {
           const score = interview.score ?? 0;
           const height = (score / maxScore) * 100;
           const color =
             score >= 75
-              ? "from-emerald-500 to-emerald-400"
+              ? "from-emerald-500 to-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.15)]"
               : score >= 50
-                ? "from-amber-500 to-amber-400"
-                : "from-rose-500 to-rose-400";
+                ? "from-amber-500 to-amber-400 shadow-[0_0_15px_rgba(245,158,11,0.15)]"
+                : "from-rose-500 to-rose-400 shadow-[0_0_15px_rgba(239,68,68,0.15)]";
 
           return (
             <div
               key={interview.id}
-              className="flex-1 flex flex-col items-center gap-1"
+              className="flex-1 flex flex-col items-center gap-1.5 h-full justify-end group cursor-pointer relative z-10"
             >
-              <span className="text-[10px] font-medium tabular-nums text-muted-foreground">
-                {score}
+              <span className="text-[9px] font-bold tabular-nums text-neutral-800 dark:text-neutral-350 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                {score}%
               </span>
-              <div className="w-full rounded-t-md overflow-hidden bg-muted relative">
+              <div className="w-full rounded-t bg-neutral-100/60 dark:bg-neutral-900/60 border border-neutral-200 dark:border-neutral-850 overflow-hidden relative h-full flex flex-col justify-end">
                 <div
                   className={cn(
-                    "w-full rounded-t-md bg-gradient-to-t transition-all duration-700 ease-out",
+                    "w-full rounded-t bg-gradient-to-t transition-all duration-700 ease-out",
                     color
                   )}
                   style={{
@@ -125,7 +125,7 @@ function ScoreChart({ interviews }: { interviews: Interview[] }) {
             key={interview.id}
             className="flex-1 text-center"
           >
-            <p className="text-[9px] text-muted-foreground truncate">
+            <p className="text-[9px] text-neutral-500 dark:text-neutral-400 font-semibold truncate uppercase tracking-wider">
               {interview.role.split(" ")[0]}
             </p>
           </div>
@@ -158,16 +158,16 @@ function DifficultyBreakdown({ interviews }: { interviews: Interview[] }) {
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5 pt-2">
       {data.map((d) => (
-        <div key={d.difficulty} className="space-y-1.5">
-          <div className="flex items-center justify-between text-sm">
-            <span className="font-medium">{d.difficulty}</span>
-            <span className="text-muted-foreground text-xs">
-              {d.count} completed · avg {d.avg || "—"}/100
+        <div key={d.difficulty} className="space-y-2">
+          <div className="flex items-center justify-between text-xs">
+            <span className="font-extrabold text-neutral-900 dark:text-white uppercase tracking-wider">{d.difficulty}</span>
+            <span className="text-neutral-500 dark:text-neutral-400 text-[10px] font-light">
+              {d.count} completed · avg <span className="font-bold text-neutral-900 dark:text-white">{d.avg || "—"}%</span>
             </span>
           </div>
-          <div className="h-2 rounded-full bg-muted overflow-hidden">
+          <div className="h-2 rounded-full bg-neutral-100 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-850 overflow-hidden relative">
             <div
               className={cn("h-full rounded-full transition-all duration-700", colorMap[d.difficulty])}
               style={{ width: d.avg > 0 ? `${d.avg}%` : "0%" }}
@@ -186,26 +186,26 @@ function RecentActivity({ interviews }: { interviews: Interview[] }) {
 
   if (recent.length === 0) {
     return (
-      <p className="text-sm text-muted-foreground py-4">No activity yet</p>
+      <p className="text-xs text-neutral-600 dark:text-neutral-400 italic py-4 font-light">No activity yet</p>
     );
   }
 
   return (
-    <div className="space-y-3">
+    <div className="divide-y divide-dashed divide-neutral-200 dark:divide-neutral-900">
       {recent.map((interview) => (
         <Link
           key={interview.id}
           href={`/interview/${interview.id}`}
-          className="flex items-center gap-3 p-3 rounded-lg hover:bg-muted/50 transition-colors group"
+          className="flex items-center gap-3.5 py-3.5 hover:bg-neutral-100/40 dark:hover:bg-neutral-900/20 transition-colors group px-2 rounded-xl"
         >
           <div
             className={cn(
-              "w-8 h-8 rounded-lg flex items-center justify-center shrink-0",
+              "w-8 h-8 rounded-lg flex items-center justify-center shrink-0 border",
               interview.status === "completed"
-                ? "bg-emerald-500/10 text-emerald-500"
+                ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"
                 : interview.status === "in-progress"
-                  ? "bg-amber-500/10 text-amber-500"
-                  : "bg-muted text-muted-foreground"
+                  ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20"
+                  : "bg-neutral-100 dark:bg-neutral-900 text-neutral-500 dark:text-neutral-400 border-neutral-200 dark:border-neutral-800"
             )}
           >
             {interview.status === "completed" ? (
@@ -217,27 +217,26 @@ function RecentActivity({ interviews }: { interviews: Interview[] }) {
             )}
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium truncate group-hover:text-primary transition-colors">
+            <p className="text-sm font-extrabold text-neutral-900 dark:text-white truncate group-hover:text-violet-600 dark:group-hover:text-violet-400 transition-colors">
               {interview.role}
             </p>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-[10px] text-neutral-500 dark:text-neutral-400 uppercase tracking-wider font-light mt-0.5">
               {interview.difficulty} · {formatInterviewDate(interview.createdAt)}
             </p>
           </div>
           {interview.status === "completed" && typeof interview.score === "number" && (
-            <Badge
-              variant="secondary"
+            <span
               className={cn(
-                "text-xs font-semibold shrink-0",
+                "text-xs font-black border border-dashed rounded-full px-2.5 py-0.5 shrink-0 uppercase tracking-wide",
                 interview.score >= 75
-                  ? "text-emerald-500"
+                  ? "text-emerald-600 dark:text-emerald-400 bg-emerald-400/5 border-emerald-400/20"
                   : interview.score >= 50
-                    ? "text-amber-500"
-                    : "text-rose-500"
+                    ? "text-amber-600 dark:text-amber-400 bg-amber-400/5 border-amber-400/20"
+                    : "text-rose-600 dark:text-rose-400 bg-rose-400/5 border-rose-400/20"
               )}
             >
               {interview.score}/100
-            </Badge>
+            </span>
           )}
         </Link>
       ))}
@@ -277,105 +276,101 @@ export default function AnalyticsPage() {
 
   return (
     <AuthGuard>
-      <div className="min-h-screen bg-background py-10 px-4">
-        <div className="max-w-4xl mx-auto space-y-8">
+      <div className="min-h-screen bg-white dark:bg-black text-neutral-800 dark:text-neutral-200 py-12 px-6 overflow-x-hidden relative">
+        {/* Blueprint Grid pattern in background */}
+        <div className="pointer-events-none absolute inset-0 -z-10 bg-[linear-gradient(to_right,#80808008_1px,transparent_1px),linear-gradient(to_bottom,#80808008_1px,transparent_1px)] bg-[size:24px_24px] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_50%,#000_70%,transparent_100%)] opacity-40" />
+
+        <div className="max-w-4xl mx-auto space-y-10 relative z-10">
           {/* Back */}
-          <Button variant="ghost" size="sm" asChild className="-ml-2">
+          <Button variant="ghost" size="sm" asChild className="-ml-2 text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-900 text-xs font-bold uppercase tracking-wider rounded-xl">
             <Link href="/dashboard">
-              <ArrowLeft className="w-4 h-4 mr-1" />
+              <ArrowLeft className="w-3.5 h-3.5 mr-1.5 text-neutral-400 dark:text-neutral-550" />
               Back to dashboard
             </Link>
           </Button>
 
           {/* Header */}
-          <div className="animate-fade-in">
-            <h1 className="text-3xl font-bold tracking-tight mb-1">
+          <div className="border-b border-dashed border-neutral-200 dark:border-neutral-900 pb-8 space-y-1.5 text-center sm:text-left">
+            <span className="text-[10px] font-bold uppercase tracking-widest text-violet-650 dark:text-violet-400">Analytics Telemetry</span>
+            <h1 className="text-2xl sm:text-3xl font-black text-neutral-900 dark:text-white tracking-tight">
               Performance Analytics
             </h1>
-            <p className="text-muted-foreground">
-              Track your interview performance and identify areas for growth.
+            <p className="text-xs sm:text-sm text-neutral-650 dark:text-neutral-400 leading-relaxed font-light">
+              Track your interview performance metrics, difficulty ranges, and telemetry.
             </p>
           </div>
 
           {loading ? (
-            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
               {Array.from({ length: 4 }).map((_, i) => (
-                <Skeleton key={i} className="h-28 rounded-xl" />
+                <Skeleton key={i} className="h-28 rounded-3xl bg-neutral-100/50 dark:bg-neutral-900/50 border border-neutral-200 dark:border-neutral-800" />
               ))}
             </div>
           ) : (
             <>
               {/* Stat Cards */}
-              <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 stagger-children">
+              <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6 stagger-children animate-fade-in">
                 <StatCard
                   icon={BarChart3}
                   label="Total Interviews"
                   value={interviews.length.toString()}
                   sub={`${completed.length} completed`}
-                  gradient="from-violet-600 to-indigo-600"
                 />
                 <StatCard
                   icon={TrendingUp}
                   label="Average Score"
-                  value={avgScore > 0 ? `${avgScore}` : "—"}
+                  value={avgScore > 0 ? `${avgScore}%` : "—"}
                   sub={avgScore > 0 ? "out of 100" : "No scores yet"}
-                  gradient="from-cyan-500 to-blue-500"
                 />
                 <StatCard
                   icon={Trophy}
                   label="Best Score"
-                  value={bestScore > 0 ? `${bestScore}` : "—"}
+                  value={bestScore > 0 ? `${bestScore}%` : "—"}
                   sub={bestScore > 0 ? "out of 100" : "No scores yet"}
-                  gradient="from-amber-500 to-orange-500"
                 />
                 <StatCard
                   icon={Target}
                   label="Completion Rate"
                   value={`${completionRate}%`}
                   sub={`${completed.length} of ${interviews.length}`}
-                  gradient="from-emerald-500 to-teal-500"
                 />
               </div>
 
               {/* Charts Row */}
-              <div className="grid lg:grid-cols-2 gap-6">
-                <Card className="border-border/60">
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-base flex items-center gap-2">
-                      <TrendingUp className="w-4 h-4 text-primary" />
-                      Score Trend
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <ScoreChart interviews={interviews} />
-                  </CardContent>
-                </Card>
+              <div className="grid lg:grid-cols-2 gap-6 animate-fade-in" style={{ animationDelay: "150ms" }}>
+                {/* Score Trend */}
+                <div className="relative overflow-hidden rounded-3xl border border-dashed border-neutral-200 dark:border-neutral-800 bg-neutral-50/40 dark:bg-neutral-950/40 backdrop-blur-md p-6">
+                  <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_right,#80808008_1px,transparent_1px),linear-gradient(to_bottom,#80808008_1px,transparent_1px)] bg-[size:20px_20px] opacity-35 dark:opacity-20" />
+                  
+                  <div className="flex items-center gap-2 mb-4 relative z-10">
+                    <TrendingUp className="w-4 h-4 text-violet-650 dark:text-violet-400" />
+                    <h2 className="text-sm font-extrabold text-neutral-900 dark:text-white uppercase tracking-wider">Score Trend</h2>
+                  </div>
+                  <ScoreChart interviews={interviews} />
+                </div>
 
-                <Card className="border-border/60">
-                  <CardHeader className="pb-3">
-                    <CardTitle className="text-base flex items-center gap-2">
-                      <BarChart3 className="w-4 h-4 text-primary" />
-                      By Difficulty Level
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <DifficultyBreakdown interviews={interviews} />
-                  </CardContent>
-                </Card>
+                {/* Difficulty Breakdown */}
+                <div className="relative overflow-hidden rounded-3xl border border-dashed border-neutral-200 dark:border-neutral-800 bg-neutral-50/40 dark:bg-neutral-950/40 backdrop-blur-md p-6">
+                  <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_right,#80808008_1px,transparent_1px),linear-gradient(to_bottom,#80808008_1px,transparent_1px)] bg-[size:20px_20px] opacity-35 dark:opacity-20" />
+                  
+                  <div className="flex items-center gap-2 mb-4 relative z-10">
+                    <BarChart3 className="w-4 h-4 text-violet-650 dark:text-violet-400" />
+                    <h2 className="text-sm font-extrabold text-neutral-900 dark:text-white uppercase tracking-wider">By Difficulty Level</h2>
+                  </div>
+                  <DifficultyBreakdown interviews={interviews} />
+                </div>
               </div>
 
               {/* Recent Activity */}
-              <Card className="border-border/60">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-base flex items-center gap-2">
-                    <Clock className="w-4 h-4 text-primary" />
-                    Recent Activity
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <RecentActivity interviews={interviews} />
-                </CardContent>
-              </Card>
+              <div className="relative overflow-hidden rounded-3xl border border-dashed border-neutral-200 dark:border-neutral-800 bg-neutral-50/40 dark:bg-neutral-950/40 backdrop-blur-md p-6 animate-fade-in" style={{ animationDelay: "300ms" }}>
+                <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_right,#80808008_1px,transparent_1px),linear-gradient(to_bottom,#80808008_1px,transparent_1px)] bg-[size:20px_20px] opacity-35 dark:opacity-20" />
+                
+                <div className="flex items-center gap-2 mb-4 relative z-10">
+                  <Clock className="w-4 h-4 text-violet-650 dark:text-violet-400" />
+                  <h2 className="text-sm font-extrabold text-neutral-900 dark:text-white uppercase tracking-wider">Recent Activity</h2>
+                </div>
+                <RecentActivity interviews={interviews} />
+              </div>
             </>
           )}
         </div>

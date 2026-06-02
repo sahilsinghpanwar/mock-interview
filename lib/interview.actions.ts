@@ -3,6 +3,7 @@ import {
   setDoc,
   getDoc,
   updateDoc,
+  deleteDoc,
   collection,
   query,
   where,
@@ -270,5 +271,17 @@ export function formatInterviewDate(isoString: string): string {
     });
   } catch {
     return "Unknown date";
+  }
+}
+
+// Delete Interview
+
+export async function deleteInterview(interviewId: string): Promise<boolean> {
+  try {
+    await deleteDoc(doc(db, "interviews", interviewId));
+    return true;
+  } catch (error) {
+    console.error("deleteInterview error:", error);
+    return false;
   }
 }

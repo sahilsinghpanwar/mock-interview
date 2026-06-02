@@ -3,8 +3,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Loader2, Mic, PhoneOff, Clock, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { useVapiInterview } from "@/hooks/useVapiInterview";
 import {
   saveInterviewFeedback,
@@ -65,7 +63,6 @@ export default function VoiceInterviewPanel({
     async (rawTranscript: string) => {
       if (finalizedRef.current) return;
 
-    
       const elapsed = (Date.now() - callStartTimeRef.current) / 1000;
       const hasContent = rawTranscript.trim().length > 20;
 
@@ -191,46 +188,63 @@ export default function VoiceInterviewPanel({
   const configured = isVapiConfigured();
 
   return (
-    <Card
+    <div
       className={cn(
-        "border-border/60 transition-all duration-300",
-        active && "border-violet-500/40 shadow-lg shadow-violet-500/10 animate-glow"
+        "relative overflow-hidden rounded-3xl border border-dashed p-6 transition-all duration-300 bg-neutral-50/40 dark:bg-neutral-950/40 backdrop-blur-md",
+        active
+          ? "border-violet-500 shadow-xl shadow-violet-500/5"
+          : "border-neutral-200 dark:border-neutral-850 hover:border-neutral-400 dark:hover:border-neutral-750"
       )}
     >
-      <CardHeader className="pb-3">
-        <CardTitle className="text-base flex items-center gap-2">
-          <Mic className="w-4 h-4 text-primary" />
-          Voice Interview
+      {/* Blueprint Grid pattern */}
+      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_right,#80808008_1px,transparent_1px),linear-gradient(to_bottom,#80808008_1px,transparent_1px)] bg-[size:20px_20px] opacity-35 dark:opacity-20" />
+
+      <div className="relative z-10 space-y-5">
+        
+        {/* Panel Header */}
+        <div className="flex items-center justify-between gap-3 border-b border-dashed border-neutral-200 dark:border-neutral-900 pb-4">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-lg bg-neutral-100 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 flex items-center justify-center shrink-0">
+              <Mic className="w-4 h-4 text-violet-650 dark:text-violet-400" />
+            </div>
+            <h2 className="text-xs font-extrabold text-neutral-900 dark:text-white uppercase tracking-wider">Voice Transceiver Interface</h2>
+          </div>
+          
           {active && (
-            <div className="flex items-center gap-2 ml-auto">
-              <AudioWaveform active={active} barCount={5} />
-              <Badge variant="secondary" className="gap-1 font-mono text-xs tabular-nums">
-                <Clock className="w-3 h-3" />
+            <div className="flex items-center gap-3">
+              <AudioWaveform active={active} barCount={6} />
+              <span className="text-[10px] font-bold px-2.5 py-1 rounded bg-neutral-105 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-850 text-violet-650 dark:text-violet-400 flex items-center gap-1.5 uppercase tracking-wide font-mono tabular-nums">
+                <Clock className="w-3.5 h-3.5 text-neutral-400 dark:text-neutral-500" />
                 {timer.formatted}
-              </Badge>
+              </span>
             </div>
           )}
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
+        </div>
+
+        {/* Configuration notice */}
         {!configured && (
-          <p className="text-sm text-amber-600 dark:text-amber-400">
-            Add <code className="text-xs">NEXT_PUBLIC_VAPI_WEB_TOKEN</code> and{" "}
-            <code className="text-xs">NEXT_PUBLIC_VAPI_ASSISTANT_ID</code> to{" "}
-            <code className="text-xs">.env.local</code>, then restart the dev
-            server.
-          </p>
+          <div className="flex items-start gap-2.5 p-3.5 rounded-2xl bg-amber-500/5 border border-dashed border-amber-500/20 text-amber-600 dark:text-amber-400">
+            <AlertTriangle className="w-4.5 h-4.5 shrink-0 mt-0.5" />
+            <div>
+              <p className="text-xs font-extrabold uppercase tracking-wider">Configuration parameters missing</p>
+              <p className="text-[10px] text-neutral-600 dark:text-neutral-400 font-light leading-relaxed mt-0.5">
+                Add <code className="text-[11px] font-mono text-neutral-900 dark:text-white">NEXT_PUBLIC_VAPI_WEB_TOKEN</code> and <code className="text-[11px] font-mono text-neutral-900 dark:text-white">NEXT_PUBLIC_VAPI_ASSISTANT_ID</code> to your local environment file (<code className="text-[11px] font-mono text-neutral-900 dark:text-white">.env.local</code>), then restart the Next.js dev server.
+              </p>
+            </div>
+          </div>
         )}
 
-        {/* Buttons */}
-        <div className="flex flex-wrap gap-2">
+        {/* Buttons Controls */}
+        <div className="flex flex-wrap gap-3">
           <Button
             type="button"
             onClick={() => void handleStart()}
             disabled={active || busy || !configured}
             className={cn(
-              "gap-2",
-              !active && !busy && configured && "bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500"
+              "h-10 text-xs font-extrabold rounded-xl px-5 transition-all duration-300 gap-2 shrink-0 border border-neutral-900 dark:border-neutral-200",
+              !active && !busy && configured
+                ? "bg-neutral-950 hover:bg-neutral-900 text-white dark:bg-white dark:hover:bg-neutral-100 dark:text-black hover:shadow-[0_0_15px_rgba(0,0,0,0.1)] dark:hover:shadow-[0_0_15px_rgba(255,255,255,0.2)]"
+                : "bg-neutral-100 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 text-neutral-400 dark:text-neutral-500"
             )}
           >
             {busy ? (
@@ -238,55 +252,60 @@ export default function VoiceInterviewPanel({
             ) : (
               <Mic className="w-4 h-4" />
             )}
-            {busy ? "Generating feedback…" : active ? "Call in progress…" : "Start Interview"}
+            {busy ? "Generating Feedback Report…" : active ? "Active Connection Established" : "Initiate Transceiver"}
           </Button>
-          <Button
-            type="button"
-            variant="destructive"
-            onClick={() => void handleEnd()}
-            disabled={!active || busy}
-            className="gap-2"
-          >
-            <PhoneOff className="w-4 h-4" />
-            End &amp; Get Feedback
-          </Button>
+
+          {active && (
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={() => void handleEnd()}
+              disabled={!active || busy}
+              className="h-10 text-xs font-extrabold rounded-xl px-5 gap-2 bg-red-600 hover:bg-red-500 text-white shadow-lg shadow-red-600/10 shrink-0"
+            >
+              <PhoneOff className="w-4 h-4" />
+              Terminate &amp; Retrieve Grade
+            </Button>
+          )}
         </div>
 
+        {/* Error notification */}
         {error && (
-          <div className="flex items-start gap-2 rounded-lg border border-destructive/30 bg-destructive/5 p-3">
-            <AlertTriangle className="w-4 h-4 text-destructive shrink-0 mt-0.5" />
-            <p className="text-sm text-destructive whitespace-pre-wrap">{error}</p>
+          <div className="flex items-start gap-2.5 p-3.5 rounded-2xl bg-rose-500/5 border border-dashed border-rose-500/20 text-rose-600 dark:text-rose-400">
+            <AlertTriangle className="w-4.5 h-4.5 shrink-0 mt-0.5" />
+            <p className="text-xs leading-relaxed font-medium">{error}</p>
           </div>
         )}
 
-        {/* Processing state */}
+        {/* Telemetry processing block */}
         {busy && (
-          <div className="flex flex-col items-center justify-center py-8 gap-3">
-            <Loader2 className="w-8 h-8 animate-spin text-primary" />
-            <p className="text-sm text-muted-foreground text-center">
-              Analyzing your interview performance…
-              <br />
-              <span className="text-xs">This usually takes 5–10 seconds.</span>
-            </p>
+          <div className="flex flex-col items-center justify-center py-10 gap-3 border border-dashed border-neutral-200 dark:border-neutral-900 bg-neutral-50/40 dark:bg-neutral-900/10 rounded-2xl">
+            <Loader2 className="w-6 h-6 animate-spin text-violet-650 dark:text-violet-400" />
+            <div className="text-center space-y-1">
+              <p className="text-xs font-extrabold text-neutral-900 dark:text-white uppercase tracking-wider">Analyzing Interview Audio Telemetry</p>
+              <p className="text-[10px] text-neutral-605 dark:text-neutral-400 font-light">
+                Mock.ai is evaluating performance grade parameters… usually compiles in 5–10s.
+              </p>
+            </div>
           </div>
         )}
 
-        {/* Live transcript */}
+        {/* Live Audio Transcript viewport */}
         {active && (
-          <div>
-            <p className="text-xs font-medium text-muted-foreground mb-1">
-              Live transcript
+          <div className="space-y-2">
+            <p className="text-[9px] font-bold text-neutral-500 dark:text-neutral-400 uppercase tracking-widest">
+              Live Transcript Telemetry
             </p>
-            <div className="rounded-lg border border-border bg-muted/30 p-3 min-h-[120px] max-h-[250px] overflow-y-auto text-sm whitespace-pre-wrap">
+            <div className="rounded-2xl border border-dashed border-neutral-200 dark:border-neutral-900 bg-white dark:bg-black p-4 min-h-[120px] max-h-[250px] overflow-y-auto text-xs whitespace-pre-wrap leading-relaxed font-light text-neutral-700 dark:text-neutral-300">
               {transcript || (
-                <span className="text-muted-foreground italic">
-                  Waiting for the interviewer to speak…
+                <span className="text-neutral-450 dark:text-neutral-500 italic font-light">
+                  Establishing transceiver downlink… waiting for interviewer voice stream…
                 </span>
               )}
             </div>
           </div>
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }
