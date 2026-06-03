@@ -28,7 +28,6 @@ function useTimer(active: boolean) {
 
   useEffect(() => {
     if (active) {
-      setSeconds(0);
       intervalRef.current = setInterval(() => setSeconds((s) => s + 1), 1000);
     } else {
       if (intervalRef.current) clearInterval(intervalRef.current);
@@ -40,7 +39,11 @@ function useTimer(active: boolean) {
 
   const mins = Math.floor(seconds / 60);
   const secs = seconds % 60;
-  return { formatted: `${mins}:${secs.toString().padStart(2, "0")}`, seconds };
+  return { 
+    formatted: `${mins}:${secs.toString().padStart(2, "0")}`, 
+    seconds,
+    reset: () => setSeconds(0)
+  };
 }
 
 // Component
@@ -157,6 +160,7 @@ export default function VoiceInterviewPanel({
     finalizedRef.current = false;
     transcriptRef.current = "";
     setTranscript("");
+    timer.reset();
     setActive(true);
     callStartTimeRef.current = Date.now();
 
