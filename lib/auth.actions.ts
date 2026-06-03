@@ -146,7 +146,8 @@
 import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
-  signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
   signOut as firebaseSignOut,
   updateProfile,
   UserCredential,
@@ -270,12 +271,10 @@ export async function signOut(): Promise<AuthResult> {
 
 export async function signInWithGoogle(): Promise<AuthResult> {
   try {
-    const credential = await signInWithPopup(auth, googleProvider);
-    await saveUserToFirestore(credential);
+    await signInWithRedirect(auth, googleProvider);
     return {
       success: true,
-      message: "Signed in with Google!",
-      userId: credential.user.uid,
+      message: "Redirecting to Google...",
     };
   } catch (error: unknown) {
     console.error("Google sign-in error:", error);
@@ -287,16 +286,26 @@ export async function signInWithGoogle(): Promise<AuthResult> {
 
 export async function signInWithGithub(): Promise<AuthResult> {
   try {
-    const credential = await signInWithPopup(auth, githubProvider);
-    await saveUserToFirestore(credential);
+    await signInWithRedirect(auth, githubProvider);
     return {
       success: true,
-      message: "Signed in with GitHub!",
-      userId: credential.user.uid,
+      message: "Redirecting to GitHub...",
     };
   } catch (error: unknown) {
     console.error("GitHub sign-in error:", error);
     return { success: false, message: getFirebaseErrorMessage(error) };
+  }
+}
+
+// Handle Redirect Login
+export async function handleRedirectResult(): Promise<void> {
+  try {
+    const credential = await getRedirectResult(auth);
+    if (credential) {
+      await saveUserToFirestore(credential);
+    }
+  } catch (error) {
+    console.error("Error handling redirect result:", error);
   }
 }
 
