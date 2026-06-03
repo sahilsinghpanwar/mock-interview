@@ -147,6 +147,8 @@ import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
   signOut as firebaseSignOut,
   updateProfile,
   UserCredential,
@@ -279,6 +281,20 @@ export async function signInWithGoogle(): Promise<AuthResult> {
     };
   } catch (error: unknown) {
     console.error("Google sign-in error:", error);
+    if (error !== null && typeof error === "object" && "code" in error) {
+      const code = (error as { code: string }).code;
+      if (code === "auth/popup-blocked" || code === "auth/popup-closed-by-user") {
+        try {
+          await signInWithRedirect(auth, googleProvider);
+          return {
+            success: true,
+            message: "Redirecting to Google...",
+          };
+        } catch (err) {
+          return { success: false, message: getFirebaseErrorMessage(err) };
+        }
+      }
+    }
     return { success: false, message: getFirebaseErrorMessage(error) };
   }
 }
@@ -296,7 +312,33 @@ export async function signInWithGithub(): Promise<AuthResult> {
     };
   } catch (error: unknown) {
     console.error("GitHub sign-in error:", error);
+    if (error !== null && typeof error === "object" && "code" in error) {
+      const code = (error as { code: string }).code;
+      if (code === "auth/popup-blocked" || code === "auth/popup-closed-by-user") {
+        try {
+          await signInWithRedirect(auth, githubProvider);
+          return {
+            success: true,
+            message: "Redirecting to GitHub...",
+          };
+        } catch (err) {
+          return { success: false, message: getFirebaseErrorMessage(err) };
+        }
+      }
+    }
     return { success: false, message: getFirebaseErrorMessage(error) };
+  }
+}
+
+// Handle Redirect Login
+export async function handleRedirectResult(): Promise<void> {
+  try {
+    const credential = await getRedirectResult(auth);
+    if (credential) {
+      await saveUserToFirestore(credential);
+    }
+  } catch (error) {
+    console.error("Error handling redirect result:", error);
   }
 }
 
