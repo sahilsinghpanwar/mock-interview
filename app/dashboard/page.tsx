@@ -10,9 +10,11 @@ import InterviewCard from "@/components/InterviewCard";
 import AuthGuard from "@/components/AuthGuard";
 import DashboardSkeleton from "@/components/DashboardSkeleton";
 import ThemeToggle from "@/components/ThemeToggle";
+import Logo from "@/components/Logo";
+import QuickStat from "@/components/QuickStat";
 import { Button } from "@/components/ui/button";
 import { FaRobot } from "react-icons/fa";
-import { LogOut, Plus, BarChart3, AlertCircle } from "lucide-react";
+import { LogOut, Plus, BarChart3 } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -61,36 +63,6 @@ export default function DashboardPage() {
       setDeletingId(null);
     }
   }
-
-  // Custom modern brain + audio wave logo for header
-  const Logo = () => (
-    <div className="flex items-center gap-3.5 group cursor-pointer">
-      <div className="relative flex items-center justify-center w-8 h-8 rounded-lg bg-neutral-100 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 overflow-hidden shadow-inner transition-all duration-300">
-        <svg
-          viewBox="0 0 32 32"
-          fill="none"
-          xmlns="http://www.w3.org/2000/svg"
-          className="w-5 h-5 text-neutral-900 dark:text-white relative z-10"
-        >
-          <path d="M7 16V16.01" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" className="opacity-40" />
-          <path d="M11 12V20" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" className="opacity-75" />
-          <path d="M15 8V24" stroke="url(#logo-grad-dash)" strokeWidth="2.5" strokeLinecap="round" />
-          <path d="M19 12V20" stroke="url(#logo-grad-dash)" strokeWidth="2.5" strokeLinecap="round" />
-          <path d="M23 10V22" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" className="opacity-80" />
-          <path d="M27 16V16.01" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" className="opacity-40" />
-          <defs>
-            <linearGradient id="logo-grad-dash" x1="15" y1="8" x2="19" y2="24" gradientUnits="userSpaceOnUse">
-              <stop stopColor="#a855f7" />
-              <stop offset="1" stopColor="#3b82f6" />
-            </linearGradient>
-          </defs>
-        </svg>
-      </div>
-      <span className="font-extrabold text-lg tracking-tight text-neutral-900 dark:text-white">
-        Mock<span className="bg-gradient-to-r from-violet-500 to-cyan-400 bg-clip-text text-transparent">.ai</span>
-      </span>
-    </div>
-  );
 
   return (
     <AuthGuard>
@@ -275,15 +247,3 @@ export default function DashboardPage() {
   );
 }
 
-// ─── Quick Stat Card ──────────────────────────────────────────────────────────
-
-function QuickStat({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="relative overflow-hidden p-6 text-center hover:bg-neutral-100/40 dark:hover:bg-neutral-900/10 transition-colors">
-      {/* Inner grid overlay */}
-      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_right,#80808005_1px,transparent_1px),linear-gradient(to_bottom,#80808005_1px,transparent_1px)] bg-[size:20px_20px] opacity-30" />
-      <p className="text-3xl font-black text-neutral-900 dark:text-white tracking-tight tabular-nums relative z-10">{value}</p>
-      <p className="text-[10px] font-bold uppercase tracking-widest text-violet-650 dark:text-violet-400 mt-2 relative z-10 leading-none">{label}</p>
-    </div>
-  );
-}
