@@ -20,6 +20,7 @@ const CACHE_TTL_MS = 5 * 60 * 1000; // 5 min
 export async function listGenerateContentModels(
   apiKey: string
 ): Promise<string[]> {
+  const cleanKey = apiKey.replace(/^["']|["']$/g, "").trim();
   const now = Date.now();
 
 
@@ -27,7 +28,7 @@ export async function listGenerateContentModels(
     return cachedModels;
   }
 
-  const modelsUrl = `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`;
+  const modelsUrl = `https://generativelanguage.googleapis.com/v1beta/models?key=${cleanKey}`;
   const response = await fetch(modelsUrl, { method: "GET" });
 
   if (!response.ok) {
@@ -128,7 +129,8 @@ async function callGeminiModel(
   modelName: string,
   prompt: string
 ): Promise<string> {
-  const generateUrl = `https://generativelanguage.googleapis.com/v1beta/${modelName}:generateContent?key=${apiKey}`;
+  const cleanKey = apiKey.replace(/^["']|["']$/g, "").trim();
+  const generateUrl = `https://generativelanguage.googleapis.com/v1beta/${modelName}:generateContent?key=${cleanKey}`;
   const generateResponse = await fetch(generateUrl, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
