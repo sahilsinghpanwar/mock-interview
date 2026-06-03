@@ -18,6 +18,7 @@ export interface AuthResult {
   success: boolean;
   message: string;
   userId?: string;
+  redirecting?: boolean;
 }
 
 export interface UserProfile {
@@ -142,8 +143,9 @@ export async function signInWithGoogle(): Promise<AuthResult> {
         try {
           await signInWithRedirect(auth, googleProvider);
           return {
-            success: true,
+            success: false,
             message: "Redirecting to Google...",
+            redirecting: true,
           };
         } catch (err) {
           return { success: false, message: getFirebaseErrorMessage(err) };
@@ -173,8 +175,9 @@ export async function signInWithGithub(): Promise<AuthResult> {
         try {
           await signInWithRedirect(auth, githubProvider);
           return {
-            success: true,
+            success: false,
             message: "Redirecting to GitHub...",
+            redirecting: true,
           };
         } catch (err) {
           return { success: false, message: getFirebaseErrorMessage(err) };
