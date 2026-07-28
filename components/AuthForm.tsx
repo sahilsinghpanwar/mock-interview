@@ -208,14 +208,10 @@ export default function AuthForm({ type }: AuthFormProps) {
     if (result.success) {
       router.push("/dashboard");
       router.refresh();
-      setOauthLoading(null);
-    } else if (result.redirecting) {
-      setServerMessage({ type: "success", text: result.message });
-      // Keep loading spinner active during the redirect transition
     } else {
       setServerMessage({ type: "error", text: result.message });
-      setOauthLoading(null);
     }
+    setOauthLoading(null);
   }
 
   async function handleGithubSignIn() {
@@ -225,14 +221,10 @@ export default function AuthForm({ type }: AuthFormProps) {
     if (result.success) {
       router.push("/dashboard");
       router.refresh();
-      setOauthLoading(null);
-    } else if (result.redirecting) {
-      setServerMessage({ type: "success", text: result.message });
-      // Keep loading spinner active during the redirect transition
     } else {
       setServerMessage({ type: "error", text: result.message });
-      setOauthLoading(null);
     }
+    setOauthLoading(null);
   }
 
   const isLoading = isSignIn

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useAuth } from "@/app/hooks/useAuth";
+import { useAuth } from "@/hooks/useAuth";
 import { getUserInterviews, formatInterviewDate, Interview } from "@/lib/interview.actions";
 import AuthGuard from "@/components/AuthGuard";
 import { Button } from "@/components/ui/button";
@@ -19,7 +19,6 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-// ─── Stat Card ────────────────────────────────────────────────────────────────
 
 function StatCard({
   icon: Icon,
@@ -55,7 +54,6 @@ function StatCard({
   );
 }
 
-// ─── Bar Chart (Telemetry CSS Style) ──────────────────────────────────────────
 
 function ScoreChart({ interviews }: { interviews: Interview[] }) {
   const completed = interviews
@@ -135,7 +133,6 @@ function ScoreChart({ interviews }: { interviews: Interview[] }) {
   );
 }
 
-// ─── Difficulty Breakdown ─────────────────────────────────────────────────────
 
 function DifficultyBreakdown({ interviews }: { interviews: Interview[] }) {
   const difficulties = ["Junior", "Mid", "Senior"] as const;
@@ -179,7 +176,6 @@ function DifficultyBreakdown({ interviews }: { interviews: Interview[] }) {
   );
 }
 
-// ─── Recent Activity ──────────────────────────────────────────────────────────
 
 function RecentActivity({ interviews }: { interviews: Interview[] }) {
   const recent = interviews.slice(0, 5);
@@ -244,7 +240,6 @@ function RecentActivity({ interviews }: { interviews: Interview[] }) {
   );
 }
 
-// ─── Main Page ────────────────────────────────────────────────────────────────
 
 export default function AnalyticsPage() {
   const { user } = useAuth();

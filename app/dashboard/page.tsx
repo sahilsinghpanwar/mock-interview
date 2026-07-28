@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { useAuth } from "@/app/hooks/useAuth";
+import { useAuth } from "@/hooks/useAuth";
 import { signOut } from "@/lib/auth.actions";
 import { getUserInterviews, formatInterviewDate, Interview, deleteInterview } from "@/lib/interview.actions";
 import InterviewCard from "@/components/InterviewCard";

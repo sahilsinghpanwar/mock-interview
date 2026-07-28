@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { useAuth } from "@/app/hooks/useAuth";
+import { useAuth } from "@/hooks/useAuth";
 import { FIELD_CONFIGS, LEVEL_CONFIGS, TechnicalField, InterviewLevel } from "@/lib/types/interview";
 import { createInterview } from "@/lib/interview.actions";
 import { getQuestionCountForDifficulty } from "@/lib/interviewDifficulty";

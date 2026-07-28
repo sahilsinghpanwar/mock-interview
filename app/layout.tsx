@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Mona_Sans } from "next/font/google";
 import "./globals.css";
-import { AuthProvider } from "@/app/hooks/useAuth";
+import { AuthProvider } from "@/hooks/useAuth";
 import { ThemeProvider } from "next-themes";
 
 const monaSans = Mona_Sans({

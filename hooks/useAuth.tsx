@@ -12,21 +12,17 @@ import { User, onAuthStateChanged } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { handleRedirectResult } from "@/lib/auth.actions";
 
-
 interface AuthContextType {
   user: User | null;
   loading: boolean;
   isAuthenticated: boolean;
 }
 
-
 const AuthContext = createContext<AuthContextType>({
   user: null,
   loading: true,
   isAuthenticated: false,
 });
-
-
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -47,7 +43,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     </AuthContext.Provider>
   );
 }
-
 
 export function useAuth(): AuthContextType {
   const ctx = useContext(AuthContext);

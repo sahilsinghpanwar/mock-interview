@@ -1,6 +1,6 @@
 "use client";
 
-import { useAuth } from "@/app/hooks/useAuth";
+import { useAuth } from "@/hooks/useAuth";
 import LandingPage from "@/components/LandingPage";
 import { redirect } from "next/navigation";
 import { useEffect } from "react";
