@@ -1,175 +1,85 @@
+/**
+ * Gemini server-side utilities — uses @google/generative-ai SDK.
+ *
+ * Strategy:
+ *  - Try each model in preferred order
+ *  - 429 (quota exceeded) → retry with exponential backoff on same model, then try next
+ *  - 404 (model not available) → skip to next model immediately
+ *  - Other errors → fail fast
+ */
 
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
-const PREFERRED_MODEL_ORDER = [
-  "models/gemini-1.5-flash",
-  "models/gemini-1.5-flash-latest",
-  "models/gemini-2.5-flash",
-  "models/gemini-2.0-flash-lite",
-  "models/gemini-2.0-flash",
-];
+const PREFERRED_MODELS = [
+  "gemini-2.0-flash",
+  "gemini-2.0-flash-lite",
+  "gemini-1.5-flash",
+  "gemini-1.5-flash-latest",
+  "gemini-2.5-flash",
+] as const;
 
-type GoogleModel = {
-  name: string;
-  supportedGenerationMethods?: string[];
-};
+const MAX_ATTEMPTS_PER_MODEL = 2;
+const RETRY_WAIT_MS = 8_000; // 8s between retries on same model
 
-let cachedModels: string[] | null = null;
-let cacheTimestamp = 0;
-const CACHE_TTL_MS = 5 * 60 * 1000; // 5 min
-
-export async function listGenerateContentModels(
-  apiKey: string
-): Promise<string[]> {
-  const now = Date.now();
-
-
-  if (cachedModels && now - cacheTimestamp < CACHE_TTL_MS) {
-    return cachedModels;
-  }
-
-  const modelsUrl = `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`;
-  const response = await fetch(modelsUrl, { method: "GET" });
-
-  if (!response.ok) {
-    
-    if (cachedModels) {
-      console.warn("Failed to refresh model list, using stale cache");
-      return cachedModels;
-    }
-    const details = await response.text().catch(() => "");
-    throw new Error(
-      `Failed to list Gemini models (${response.status}): ${details || response.statusText}`
-    );
-  }
-
-  const data = (await response.json()) as { models?: GoogleModel[] };
-  const models = data.models ?? [];
-
-  cachedModels = models
-    .filter((model) =>
-      model.supportedGenerationMethods?.includes("generateContent")
-    )
-    .map((model) => model.name);
-
-  cacheTimestamp = now;
-  return cachedModels;
-}
-
-export function pickGeminiModelName(availableModels: string[]): string {
-  const preferred = PREFERRED_MODEL_ORDER.find((candidate) =>
-    availableModels.includes(candidate)
-  );
-  if (preferred) return preferred;
-  return availableModels[0] ?? "";
-}
-
+// ---------------------------------------------------------------------------
 
 export async function geminiGenerateText(
   apiKey: string,
   prompt: string
 ): Promise<string> {
-  const availableModels = await listGenerateContentModels(apiKey);
-  const modelsToTry = PREFERRED_MODEL_ORDER.filter((m) =>
-    availableModels.includes(m)
-  );
-
-  if (modelsToTry.length === 0 && availableModels.length > 0) {
-    modelsToTry.push(availableModels[0]);
-  }
-
-  if (modelsToTry.length === 0) {
-    throw new Error(
-      "No Gemini model with generateContent is available for this API key"
-    );
-  }
-
+  const genAI = new GoogleGenerativeAI(apiKey);
   let lastError: Error | null = null;
 
-  
-  for (const modelName of modelsToTry) {
-  
-    for (let attempt = 0; attempt < 3; attempt++) {
+  for (const modelName of PREFERRED_MODELS) {
+    for (let attempt = 0; attempt < MAX_ATTEMPTS_PER_MODEL; attempt++) {
       try {
-        const result = await callGeminiModel(apiKey, modelName, prompt);
-        return result;
-      } catch (e) {
-        lastError = e instanceof Error ? e : new Error(String(e));
+        const model = genAI.getGenerativeModel({
+          model: modelName,
+          generationConfig: { temperature: 0.7, maxOutputTokens: 4096 },
+        });
 
-        
-        if (lastError.message.includes("429")) {
-          const retryMatch = lastError.message.match(/retry in (\d+)/i);
-          const waitSeconds = retryMatch
-            ? Math.min(parseInt(retryMatch[1], 10) + 2, 60)
-            : 10 * Math.pow(2, attempt); // 10s, 20s, 40s
+        const result = await model.generateContent(prompt);
+        const text = result.response.text().trim();
 
+        if (!text) throw new Error(`[Gemini] ${modelName} returned empty response`);
+
+        console.log(`[Gemini] ✓ Success with model: ${modelName}`);
+        return text;
+      } catch (err) {
+        lastError = err instanceof Error ? err : new Error(String(err));
+        const msg = lastError.message;
+
+        // 404 — model not available for this API key, skip immediately
+        if (msg.includes("404") || msg.includes("not found")) {
+          console.warn(`[Gemini] ${modelName} not available, trying next…`);
+          break;
+        }
+
+        // 429 — quota exceeded, wait and retry
+        if (msg.includes("429") || msg.includes("quota") || msg.includes("RESOURCE_EXHAUSTED")) {
+          const waitMs = RETRY_WAIT_MS * Math.pow(2, attempt);
           console.warn(
-            `Rate limited on ${modelName} (attempt ${attempt + 1}/3). ` +
-            `Waiting ${waitSeconds}s before retry...`
+            `[Gemini] ${modelName} quota exceeded (attempt ${attempt + 1}/${MAX_ATTEMPTS_PER_MODEL}). ` +
+              `Waiting ${waitMs / 1000}s…`
           );
-
-          await sleep(waitSeconds * 1000);
+          await sleep(waitMs);
           continue;
         }
 
+        // Any other error — fail fast, no point retrying
+        console.error(`[Gemini] ${modelName} failed with unrecoverable error:`, msg);
         throw lastError;
       }
     }
-
-    console.warn(`All retries exhausted for ${modelName}, trying next model...`);
   }
 
-  throw lastError ?? new Error("All Gemini models are rate-limited. Please wait a minute and try again.");
+  throw new Error(
+    "[Gemini] All models quota exceeded or unavailable. " +
+      "Please wait a few minutes or upgrade your Gemini API plan at https://ai.google.dev/"
+  );
 }
 
-//  Helpers
-
-async function callGeminiModel(
-  apiKey: string,
-  modelName: string,
-  prompt: string
-): Promise<string> {
-  const generateUrl = `https://generativelanguage.googleapis.com/v1beta/${modelName}:generateContent?key=${apiKey}`;
-  const generateResponse = await fetch(generateUrl, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      contents: [{ parts: [{ text: prompt }] }],
-      generationConfig: {
-        temperature: 0.7,
-        maxOutputTokens: 4096,
-      },
-    }),
-  });
-
-  if (!generateResponse.ok) {
-    const details = await generateResponse.text().catch(() => "");
-    throw new Error(
-      `Gemini generateContent failed on ${modelName} (${generateResponse.status}): ${
-        details || generateResponse.statusText
-      }`
-    );
-  }
-
-  const generateData = (await generateResponse.json()) as {
-    candidates?: Array<{
-      content?: {
-        parts?: Array<{ text?: string }>;
-      };
-    }>;
-  };
-
-  const text =
-    generateData.candidates?.[0]?.content?.parts
-      ?.map((part) => part.text ?? "")
-      .join("")
-      .trim() ?? "";
-
-  if (!text) {
-    throw new Error("Gemini returned an empty response");
-  }
-
-  return text;
-}
+// ---------------------------------------------------------------------------
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));

@@ -79,28 +79,67 @@ export function buildFeedbackPrompt(input: {
   questions: string[];
   transcript: string;
 }): string {
-  return `You are an experienced engineering hiring manager.
+  return `You are a senior ${input.role} hiring manager at a top-tier tech company.
+You just finished conducting a ${input.difficulty}-level ${input.type} mock interview.
+Your job is to give the candidate brutally honest, specific, and actionable feedback — exactly like a real post-interview debrief.
 
-Mock interview context:
-- Role: ${input.role}
-- Type: ${input.type}
-- Level: ${input.difficulty}
+---
+INTERVIEW CONTEXT
+- Role applied for: ${input.role}
+- Interview type: ${input.type}
+- Difficulty level: ${input.difficulty}
+- Total questions planned: ${input.questions.length}
 
-Planned questions (reference):
-${input.questions.map((q, i) => `${i + 1}. ${q}`).join("\n")}
+QUESTIONS THAT WERE ASKED:
+${input.questions.map((q, i) => `Q${i + 1}: ${q}`).join("\n")}
 
-Conversation transcript (may be partial; user and assistant turns):
-${input.transcript || "(No transcript captured.)"}
+FULL INTERVIEW TRANSCRIPT (candidate + interviewer):
+${input.transcript || "(Empty — candidate did not respond or session ended immediately.)"}
+---
 
-Task:
-Evaluate the candidate's performance based on the transcript. If the transcript is empty or too short, say so briefly and still give generic improvement tips for this role/level.
+YOUR EVALUATION TASK:
 
-Return ONLY valid JSON with this exact shape (no markdown):
+Step 1 — Read the transcript carefully and map each candidate response to its question.
+Step 2 — Score each answer mentally on: correctness, depth, clarity, real-world awareness.
+Step 3 — Synthesize an overall score and write honest, specific feedback.
+
+SCORING RUBRIC (0–100):
+- 90–100 → Exceptional. Deep, accurate, well-structured. Would strongly hire.
+- 75–89  → Strong. Solid answers, minor gaps. Would likely hire.
+- 60–74  → Average. Understood the basics, lacked depth or missed key points. Maybe hire.
+- 40–59  → Below average. Partial answers, gaps in fundamentals. Would not hire yet.
+- 20–39  → Weak. Struggled with most questions. Needs significant preparation.
+- 0–19   → Very poor. Did not answer or spoke very little. No hiring signal.
+
+WHAT TO EVALUATE (cover ALL of these in your feedback):
+1. Technical Correctness — Were the answers right? What concepts were missed?
+2. Depth & Insight — Did they explain the WHY behind their answers, not just WHAT?
+3. Communication — Were answers structured, clear, and easy to follow?
+4. Real-world Awareness — Did they mention trade-offs, edge cases, or past experience?
+5. Completeness — Did they answer the full question or leave parts unanswered?
+6. Confidence — Did they speak with conviction or did they sound unsure?
+
+STRICT RULES:
+- Base EVERYTHING only on what is actually in the transcript. Never fabricate or assume.
+- If the transcript is empty or under 30 words, score 0–15 and explain the session was incomplete.
+- If questions were skipped, mention exactly which ones were unanswered.
+- Strengths must quote or closely reference something the candidate actually said.
+- Improvements must be specific and tell the candidate exactly what they should have said or done.
+- Do NOT give generic praise like "good effort" unless it is backed by transcript evidence.
+- Write like a hiring manager, not a tutor — direct, professional, real.
+
+Return ONLY a valid JSON object. No markdown. No explanation outside JSON. Exact shape:
 {
-  "score": <number 0-100>,
-  "summary": "<2-4 sentences overall>",
-  "strengths": ["<bullet>", "<bullet>"],
-  "improvements": ["<bullet>", "<bullet>"],
-  "detailedFeedback": "<3-6 sentences: actionable feedback on communication, technical depth, and structure>"
+  "score": <integer 0-100>,
+  "summary": "<3-5 sentences: overall impression of the candidate, what worked, what didn't, and your honest hiring signal>",
+  "strengths": [
+    "<2–4 specific strengths tied directly to what the candidate said or demonstrated>",
+    "..."
+  ],
+  "improvements": [
+    "<2–4 specific, actionable gaps — what they said wrong, what they missed, and what the correct answer/approach should have been>",
+    "..."
+  ],
+  "detailedFeedback": "<6-10 sentences: go deep — per-question analysis where possible, technical correctness assessment, communication quality, confidence observations, overall hiring decision rationale, and one precise action the candidate should take before their next interview>"
 }`;
 }

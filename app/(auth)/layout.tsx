@@ -23,7 +23,7 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
     );
   }
 
-  if (user) return null;
+  if (user) return null
 
   return (
     <div className="relative min-h-screen flex items-center justify-center overflow-hidden bg-[#0a0a0f]">
