@@ -113,8 +113,26 @@ export default function VoiceInterviewPanel({
           strengths: string[];
           improvements: string[];
           detailedFeedback: string;
+          questionAnalysis?: Array<{
+            question: string;
+            userAnswer: string;
+            rating: string;
+            feedback: string;
+          }>;
         };
 
+        // Merge per-question candidate answers and ratings into interview questions array
+        const updatedQuestions = interview.questions.map((q, idx) => {
+          const analysis = data.questionAnalysis?.[idx];
+          return {
+            ...q,
+            userAnswer: analysis?.userAnswer || "",
+            rating: analysis?.rating || "",
+            feedback: analysis?.feedback || "",
+          };
+        });
+
+        // Save complete metrics, answers, and question analysis to Firebase Firestore
         await saveInterviewFeedback(interview.id, {
           score: data.score,
           summary: data.summary,
@@ -122,6 +140,8 @@ export default function VoiceInterviewPanel({
           strengths: data.strengths,
           improvements: data.improvements,
           transcriptSummary: rawTranscript.slice(0, 12000),
+          questions: updatedQuestions,
+          questionAnalysis: data.questionAnalysis,
         });
 
         onFeedbackSaved({
@@ -132,6 +152,8 @@ export default function VoiceInterviewPanel({
           strengths: data.strengths,
           improvements: data.improvements,
           transcriptSummary: rawTranscript.slice(0, 12000),
+          questions: updatedQuestions,
+          questionAnalysis: data.questionAnalysis,
         });
       } catch (e) {
         finalizedRef.current = false;
