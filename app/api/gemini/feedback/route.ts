@@ -11,32 +11,74 @@ type Body = {
 };
 
 /**
- * Extracts candidate answers from transcript lines starting with "You: " or "Candidate: ".
+ * Extracts candidate answers from transcript using explicit interviewer/candidate turn boundaries.
+ * Associates candidate responses with their corresponding question based on conversation flow.
  */
-function extractUserAnswersFromTranscript(transcript: string, questionCount: number): string[] {
-  if (!transcript.trim()) return [];
+function extractUserAnswersFromTranscript(
+  transcript: string,
+  questionCount: number,
+  questions?: string[]
+): string[] {
+  if (!transcript.trim() || questionCount <= 0) return [];
+
   const lines = transcript.split("\n");
-  const userLines: string[] = [];
+  const answers: string[] = new Array(questionCount).fill("");
+  let currentQIndex = -1;
 
   for (const line of lines) {
     const trimmed = line.trim();
-    if (trimmed.startsWith("You:") || trimmed.startsWith("You: ") || trimmed.startsWith("Candidate:") || trimmed.startsWith("Candidate: ")) {
-      const clean = trimmed.replace(/^(You|Candidate):\s*/i, "").trim();
-      if (clean) userLines.push(clean);
+    if (!trimmed) continue;
+
+    const isInterviewer =
+      trimmed.startsWith("Interviewer:") ||
+      trimmed.startsWith("Interviewer: ") ||
+      /^Q\d+:/.test(trimmed);
+
+    const isCandidate =
+      trimmed.startsWith("You:") ||
+      trimmed.startsWith("You: ") ||
+      trimmed.startsWith("Candidate:") ||
+      trimmed.startsWith("Candidate: ") ||
+      trimmed.startsWith("User:") ||
+      trimmed.startsWith("User: ") ||
+      /^A\d+:/.test(trimmed);
+
+    if (isInterviewer) {
+      if (questions && questions.length > 0) {
+        const lowerLine = trimmed.toLowerCase();
+        for (let i = 0; i < questions.length; i++) {
+          const qClean = questions[i].toLowerCase().replace(/[^a-z0-9]/g, "");
+          const lineClean = lowerLine.replace(/[^a-z0-9]/g, "");
+          if (qClean.length > 8 && lineClean.includes(qClean.slice(0, 20))) {
+            currentQIndex = i;
+            break;
+          }
+        }
+      } else {
+        if (currentQIndex < questionCount - 1) {
+          currentQIndex++;
+        }
+      }
+    } else if (isCandidate) {
+      if (currentQIndex < 0) {
+        currentQIndex = 0;
+      }
+
+      const cleanText = trimmed
+        .replace(/^(You|Candidate|User|A\d+):\s*/i, "")
+        .trim();
+
+      if (cleanText && currentQIndex < questionCount) {
+        if (answers[currentQIndex]) {
+          answers[currentQIndex] += " " + cleanText;
+        } else {
+          answers[currentQIndex] = cleanText;
+        }
+      }
     }
   }
 
-  // If candidate answers exist, distribute or group them per question
-  if (userLines.length === 0) return [];
-  
-  // Distribute extracted lines across available questions
-  const perQuestion: string[] = [];
-  const chunkSize = Math.max(1, Math.ceil(userLines.length / questionCount));
-  for (let i = 0; i < questionCount; i++) {
-    const chunk = userLines.slice(i * chunkSize, (i + 1) * chunkSize);
-    perQuestion.push(chunk.join(" ").trim());
-  }
-  return perQuestion;
+  return answers.map((a) => a.trim());
 }
 
 /**
@@ -65,24 +107,24 @@ function buildFallbackFeedback(
       : Math.round(Math.max(10, Math.min(65, completionRatio * 65)));
 
   const didNothing = transcriptWords < 20;
-  const stoppedEarly = !didNothing && completionRatio < 0.5;
+  const isFullyCompleted = !didNothing && estimatedAnswered === totalQuestions;
 
   const summary = didNothing
     ? "The interview was stopped before any questions were answered. No conversation was recorded."
-    : stoppedEarly
-    ? `The interview was stopped early. Approximately ${estimatedAnswered} of ${totalQuestions} questions were attempted based on the transcript. A complete session would give a better picture of your readiness.`
-    : `The interview was completed (approximately ${estimatedAnswered}/${totalQuestions} questions). AI feedback is unavailable right now, but completing the full session is a good sign.`;
+    : isFullyCompleted
+    ? `The interview was completed (${estimatedAnswered}/${totalQuestions} questions). AI feedback is unavailable right now, but completing the full session is a good sign.`
+    : `The interview was stopped early. Approximately ${estimatedAnswered} of ${totalQuestions} questions were attempted based on the transcript. A complete session would give a better picture of your readiness.`;
 
   const strengths = didNothing
     ? ["You set up the interview — that first step matters."]
-    : stoppedEarly
+    : !isFullyCompleted
     ? [
         "You started the interview and attempted some questions.",
         "Practice sessions, even incomplete ones, build familiarity with the format.",
       ]
     : [
-        `You completed most of the ${role} interview questions.`,
-        "Finishing the majority of questions shows good persistence and preparation.",
+        `You completed all of the ${role} interview questions.`,
+        "Finishing the full set of questions shows good persistence and preparation.",
       ];
 
   const improvements = didNothing
@@ -91,7 +133,7 @@ function buildFallbackFeedback(
         "Ensure your microphone is working before starting.",
         "Practice answering questions out loud to build confidence.",
       ]
-    : stoppedEarly
+    : !isFullyCompleted
     ? [
         "Aim to complete all questions in one sitting for a full assessment.",
         "If you get stuck, take a breath and structure your answer using STAR method.",
@@ -108,16 +150,25 @@ function buildFallbackFeedback(
     : `AI-powered feedback is temporarily unavailable (Gemini API quota/key issue). Based on transcript analysis: approximately ${transcriptWords} words were spoken across an estimated ${estimatedAnswered} of ${totalQuestions} questions. To unlock detailed AI feedback, update your GEMINI_API_KEY at https://aistudio.google.com/app/apikey and retry.`;
 
   // Parse candidate responses for per-question analysis
-  const extractedAnswers = extractUserAnswersFromTranscript(transcript, questions.length);
+  const extractedAnswers = extractUserAnswersFromTranscript(transcript, questions.length, questions);
   const questionAnalysis = questions.map((q, i) => {
-    const ans = extractedAnswers[i] || (didNothing ? "No answer recorded." : "Answer recorded in transcript.");
+    const rawAns = (extractedAnswers[i] || "").trim();
+    const hasAnswer = rawAns.length > 0;
+    const userAnswer = hasAnswer ? rawAns : "No answer recorded.";
+    const rating = !hasAnswer
+      ? "Unanswered"
+      : rawAns.length > 20
+      ? "Good"
+      : "Needs Improvement";
+    const feedback = !hasAnswer
+      ? "No response was recorded for this question."
+      : "Candidate responded. Detailed AI coaching feedback will generate when GEMINI_API_KEY is active.";
+
     return {
       question: q,
-      userAnswer: ans,
-      rating: didNothing ? "Unanswered" : ans.length > 20 ? "Good" : "Needs Improvement",
-      feedback: didNothing
-        ? "No response was recorded for this question."
-        : "Candidate responded. Detailed AI coaching feedback will generate when GEMINI_API_KEY is active.",
+      userAnswer,
+      rating,
+      feedback,
     };
   });
 
@@ -178,7 +229,7 @@ export async function POST(req: Request) {
     };
 
     // Extract user answers from transcript if Gemini didn't return them for some items
-    const extractedAnswers = extractUserAnswersFromTranscript(tx, qs.length);
+    const extractedAnswers = extractUserAnswersFromTranscript(tx, qs.length, qs);
 
     // Normalize questionAnalysis array
     const rawAnalysis = Array.isArray(parsed.questionAnalysis) ? parsed.questionAnalysis : [];
@@ -187,9 +238,29 @@ export async function POST(req: Request) {
         (item) => item.question && item.question.toLowerCase().includes(qText.slice(0, 20).toLowerCase())
       ) || rawAnalysis[index];
 
-      const userAnswer = matchedItem?.userAnswer || extractedAnswers[index] || "No answer recorded.";
-      const rating = matchedItem?.rating || (userAnswer.length > 25 ? "Good" : "Needs Improvement");
-      const feedback = matchedItem?.feedback || "Evaluation complete based on interview transcript.";
+      const rawUserAnswer = (matchedItem?.userAnswer || extractedAnswers[index] || "").trim();
+      const isPlaceholder =
+        !rawUserAnswer ||
+        rawUserAnswer.toLowerCase() === "no answer recorded." ||
+        rawUserAnswer.toLowerCase() === "no answer provided" ||
+        rawUserAnswer.toLowerCase() === "answer recorded in transcript.";
+
+      const hasAnswer = !isPlaceholder;
+      const userAnswer = hasAnswer ? rawUserAnswer : "No answer recorded.";
+
+      const rating = matchedItem?.rating
+        ? matchedItem.rating
+        : !hasAnswer
+        ? "Unanswered"
+        : rawUserAnswer.length > 25
+        ? "Good"
+        : "Needs Improvement";
+
+      const feedback = matchedItem?.feedback
+        ? matchedItem.feedback
+        : !hasAnswer
+        ? "No response was recorded for this question."
+        : "Evaluation complete based on interview transcript.";
 
       return {
         question: qText,

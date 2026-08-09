@@ -161,6 +161,106 @@ export async function createInterview(
   }
 }
 
+/**
+ * Parses interview transcript to extract candidate answers for each question
+ * if candidate answers were not explicitly stored in questions array.
+ */
+export function parseQAPairsFromTranscript(
+  questions: InterviewQuestion[],
+  transcriptSummary?: string
+): InterviewQuestion[] {
+  if (!questions || questions.length === 0) return [];
+  if (!transcriptSummary || !transcriptSummary.trim()) {
+    return questions;
+  }
+
+  const lines = transcriptSummary.split("\n").map((l) => l.trim()).filter(Boolean);
+  const questionAnswers: string[] = new Array(questions.length).fill("");
+  let currentQIndex = 0;
+
+  for (const line of lines) {
+    const isInterviewer =
+      line.startsWith("Interviewer:") ||
+      line.startsWith("Interviewer: ") ||
+      /^Q\d+:/.test(line);
+
+    const isCandidate =
+      line.startsWith("You:") ||
+      line.startsWith("You: ") ||
+      line.startsWith("Candidate:") ||
+      line.startsWith("Candidate: ") ||
+      line.startsWith("User:") ||
+      line.startsWith("User: ") ||
+      /^A\d+:/.test(line);
+
+    if (isInterviewer) {
+      const lowerLine = line.toLowerCase();
+      for (let i = 0; i < questions.length; i++) {
+        const qClean = questions[i].text.toLowerCase().replace(/[^a-z0-9]/g, "");
+        const lineClean = lowerLine.replace(/[^a-z0-9]/g, "");
+        if (qClean.length > 10 && lineClean.includes(qClean.slice(0, 20))) {
+          currentQIndex = i;
+          break;
+        }
+      }
+    } else if (isCandidate) {
+      const cleanText = line.replace(/^(You|Candidate|User|A\d+):\s*/i, "").trim();
+      if (cleanText) {
+        if (questionAnswers[currentQIndex]) {
+          questionAnswers[currentQIndex] += " " + cleanText;
+        } else {
+          questionAnswers[currentQIndex] = cleanText;
+        }
+      }
+    }
+  }
+
+  return questions.map((q, i) => {
+    const existingAnswer = q.userAnswer?.trim();
+    const extractedAnswer = questionAnswers[i]?.trim();
+    const finalAnswer =
+      existingAnswer && existingAnswer !== ""
+        ? existingAnswer
+        : extractedAnswer || "";
+
+    return {
+      ...q,
+      userAnswer: finalAnswer,
+    };
+  });
+}
+
+/**
+ * Normalizes raw Firestore `questions` data into strongly typed `InterviewQuestion[]`.
+ * Supports legacy formats (array of strings) and current format (array of InterviewQuestion objects).
+ * Automatically extracts candidate answers from transcript if missing.
+ */
+export function normalizeQuestions(
+  rawQuestions: unknown,
+  transcriptSummary?: string
+): InterviewQuestion[] {
+  if (!Array.isArray(rawQuestions)) return [];
+
+  const parsed: InterviewQuestion[] = rawQuestions.map((q, i) => {
+    if (typeof q === "string") {
+      return { id: `q-${i + 1}`, text: q, userAnswer: "", rating: "", feedback: "" };
+    }
+    if (typeof q === "object" && q !== null) {
+      const qObj = q as Record<string, unknown>;
+      return {
+        id: String(qObj.id ?? `q-${i + 1}`),
+        text: String(qObj.text ?? ""),
+        userAnswer: String(qObj.userAnswer ?? ""),
+        rating: String(qObj.rating ?? ""),
+        feedback: String(qObj.feedback ?? ""),
+      };
+    }
+    return { id: `q-${i + 1}`, text: "", userAnswer: "", rating: "", feedback: "" };
+  });
+
+  return parseQAPairsFromTranscript(parsed, transcriptSummary);
+}
+
 // Get Single Interview
 
 export async function getInterview(id: string): Promise<Interview | null> {
@@ -169,14 +269,15 @@ export async function getInterview(id: string): Promise<Interview | null> {
     if (!snap.exists()) return null;
 
     const data = snap.data();
+    const questions = normalizeQuestions(data.questions, data.transcriptSummary);
 
     return {
       id: snap.id,
       ...data,
+      questions,
       createdAt: normalizeDate(data.createdAt),
       status: data.status ?? "pending",
-      numQuestions: data.numQuestions ?? data.questions?.length ?? 0,
-      questions: Array.isArray(data.questions) ? data.questions : [],
+      numQuestions: data.numQuestions ?? questions.length ?? 0,
       questionAnalysis: Array.isArray(data.questionAnalysis) ? data.questionAnalysis : [],
     } as Interview;
   } catch (error) {
@@ -209,13 +310,14 @@ export async function getUserInterviews(userId: string): Promise<Interview[]> {
       const docs = snapshot.docs
         .map((docSnap) => {
           const data = docSnap.data();
+          const questions = normalizeQuestions(data.questions, data.transcriptSummary);
           return {
             id: docSnap.id,
             ...data,
+            questions,
             createdAt: normalizeDate(data.createdAt),
             status: data.status ?? "pending",
-            numQuestions: data.numQuestions ?? data.questions?.length ?? 0,
-            questions: Array.isArray(data.questions) ? data.questions : [],
+            numQuestions: data.numQuestions ?? questions.length ?? 0,
             questionAnalysis: Array.isArray(data.questionAnalysis) ? data.questionAnalysis : [],
           } as Interview;
         })
@@ -229,13 +331,14 @@ export async function getUserInterviews(userId: string): Promise<Interview[]> {
 
     return snapshot.docs.map((docSnap) => {
       const data = docSnap.data();
+      const questions = normalizeQuestions(data.questions, data.transcriptSummary);
       return {
         id: docSnap.id,
         ...data,
+        questions,
         createdAt: normalizeDate(data.createdAt),
         status: data.status ?? "pending",
-        numQuestions: data.numQuestions ?? data.questions?.length ?? 0,
-        questions: Array.isArray(data.questions) ? data.questions : [],
+        numQuestions: data.numQuestions ?? questions.length ?? 0,
         questionAnalysis: Array.isArray(data.questionAnalysis) ? data.questionAnalysis : [],
       } as Interview;
     });
