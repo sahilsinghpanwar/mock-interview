@@ -14,6 +14,9 @@ import {
   MessageSquareText,
   Trophy,
   Target,
+  BookOpen,
+  CheckCircle2,
+  AlertCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -272,6 +275,85 @@ export default function InterviewFeedback({ interview }: InterviewFeedbackProps)
               <p className="text-xs text-neutral-500 dark:text-neutral-400 font-light italic">No improvement items compiled.</p>
             )}
           </div>
+        </div>
+      </div>
+
+      {/* Question & Answer Breakdown */}
+      <div className="relative overflow-hidden rounded-3xl border border-dashed border-neutral-200 dark:border-neutral-800 bg-neutral-50/40 dark:bg-neutral-950/40 backdrop-blur-md p-6 animate-fade-in" style={{ animationDelay: "350ms" }}>
+        <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_right,#80808008_1px,transparent_1px),linear-gradient(to_bottom,#80808008_1px,transparent_1px)] bg-[size:20px_20px] opacity-35 dark:opacity-20" />
+        
+        <div className="flex items-center gap-2 mb-5 relative z-10">
+          <BookOpen className="w-4 h-4 text-violet-650 dark:text-violet-400" />
+          <h2 className="text-sm font-extrabold text-neutral-900 dark:text-white uppercase tracking-wider">Question &amp; Candidate Answer Breakdown</h2>
+        </div>
+
+        <div className="space-y-4 relative z-10">
+          {interview.questions.map((q, idx) => {
+            const analysis = interview.questionAnalysis?.[idx];
+            const answer = q.userAnswer || analysis?.userAnswer || "No answer recorded.";
+            const rating = q.rating || analysis?.rating || (answer.length > 25 ? "Good" : "Needs Improvement");
+            const qFeedback = q.feedback || analysis?.feedback || "";
+
+            const isExcellent = rating.toLowerCase().includes("excellent") || rating.toLowerCase().includes("great");
+            const isGood = rating.toLowerCase().includes("good");
+            const isUnanswered = rating.toLowerCase().includes("unanswered") || answer === "No answer recorded.";
+
+            return (
+              <div
+                key={q.id || idx}
+                className="rounded-2xl border border-dashed border-neutral-200 dark:border-neutral-850 bg-white dark:bg-black p-5 space-y-3"
+              >
+                {/* Question Header & Rating Badge */}
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="text-[10px] font-black px-2.5 py-1 rounded bg-violet-500/10 text-violet-650 dark:text-violet-400 uppercase tracking-widest shrink-0">
+                      Q{idx + 1}
+                    </span>
+                    <h3 className="text-xs sm:text-sm font-extrabold text-neutral-900 dark:text-white leading-snug">
+                      {q.text}
+                    </h3>
+                  </div>
+                  <span
+                    className={cn(
+                      "text-[9px] font-extrabold px-2.5 py-0.5 rounded-full border border-dashed shrink-0 uppercase tracking-wider flex items-center gap-1",
+                      isExcellent
+                        ? "text-emerald-600 dark:text-emerald-400 bg-emerald-500/5 border-emerald-500/20"
+                        : isGood
+                        ? "text-cyan-600 dark:text-cyan-400 bg-cyan-500/5 border-cyan-500/20"
+                        : isUnanswered
+                        ? "text-rose-600 dark:text-rose-400 bg-rose-500/5 border-rose-500/20"
+                        : "text-amber-600 dark:text-amber-400 bg-amber-500/5 border-amber-500/20"
+                    )}
+                  >
+                    {isExcellent || isGood ? (
+                      <CheckCircle2 className="w-3 h-3" />
+                    ) : (
+                      <AlertCircle className="w-3 h-3" />
+                    )}
+                    {rating}
+                  </span>
+                </div>
+
+                {/* Candidate Spoken Answer */}
+                <div className="rounded-xl bg-neutral-50 dark:bg-neutral-900/40 p-3.5 border border-dashed border-neutral-200 dark:border-neutral-850 space-y-1">
+                  <p className="text-[9px] font-black text-cyan-600 dark:text-cyan-400 uppercase tracking-widest">
+                    Candidate Answer (Stored in Firebase)
+                  </p>
+                  <p className="text-xs text-neutral-700 dark:text-neutral-300 leading-relaxed font-light whitespace-pre-wrap">
+                    {answer}
+                  </p>
+                </div>
+
+                {/* Per-Question Coaching Feedback */}
+                {qFeedback && (
+                  <div className="flex items-start gap-2 pt-1 text-xs text-neutral-600 dark:text-neutral-400 font-light leading-relaxed">
+                    <Sparkles className="w-3.5 h-3.5 text-violet-500 shrink-0 mt-0.5" />
+                    <span><strong className="font-semibold text-neutral-800 dark:text-neutral-200">Feedback:</strong> {qFeedback}</span>
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       </div>
 

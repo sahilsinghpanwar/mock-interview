@@ -10,6 +10,38 @@ type Body = {
   transcript?: string;
 };
 
+/**
+ * Extracts candidate answers from transcript lines starting with "You: " or "Candidate: ".
+ */
+function extractUserAnswersFromTranscript(transcript: string, questionCount: number): string[] {
+  if (!transcript.trim()) return [];
+  const lines = transcript.split("\n");
+  const userLines: string[] = [];
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (trimmed.startsWith("You:") || trimmed.startsWith("You: ") || trimmed.startsWith("Candidate:") || trimmed.startsWith("Candidate: ")) {
+      const clean = trimmed.replace(/^(You|Candidate):\s*/i, "").trim();
+      if (clean) userLines.push(clean);
+    }
+  }
+
+  // If candidate answers exist, distribute or group them per question
+  if (userLines.length === 0) return [];
+  
+  // Distribute extracted lines across available questions
+  const perQuestion: string[] = [];
+  const chunkSize = Math.max(1, Math.ceil(userLines.length / questionCount));
+  for (let i = 0; i < questionCount; i++) {
+    const chunk = userLines.slice(i * chunkSize, (i + 1) * chunkSize);
+    perQuestion.push(chunk.join(" ").trim());
+  }
+  return perQuestion;
+}
+
+/**
+ * Constructs structured fallback feedback when Gemini API is unavailable or quota is exceeded.
+ */
 function buildFallbackFeedback(
   questions: string[],
   transcript: string,
@@ -34,13 +66,12 @@ function buildFallbackFeedback(
 
   const didNothing = transcriptWords < 20;
   const stoppedEarly = !didNothing && completionRatio < 0.5;
-  const mostlyDone = !didNothing && completionRatio >= 0.5;
 
   const summary = didNothing
     ? "The interview was stopped before any questions were answered. No conversation was recorded."
     : stoppedEarly
     ? `The interview was stopped early. Approximately ${estimatedAnswered} of ${totalQuestions} questions were attempted based on the transcript. A complete session would give a better picture of your readiness.`
-    : `The interview was mostly completed (approximately ${estimatedAnswered}/${totalQuestions} questions). AI feedback is unavailable right now, but completing the full session is a good sign.`;
+    : `The interview was completed (approximately ${estimatedAnswered}/${totalQuestions} questions). AI feedback is unavailable right now, but completing the full session is a good sign.`;
 
   const strengths = didNothing
     ? ["You set up the interview — that first step matters."]
@@ -76,7 +107,21 @@ function buildFallbackFeedback(
     ? "No transcript was captured. The session ended before any meaningful conversation occurred. Please ensure your microphone is working and try again. AI-powered feedback requires a completed session."
     : `AI-powered feedback is temporarily unavailable (Gemini API quota/key issue). Based on transcript analysis: approximately ${transcriptWords} words were spoken across an estimated ${estimatedAnswered} of ${totalQuestions} questions. To unlock detailed AI feedback, update your GEMINI_API_KEY at https://aistudio.google.com/app/apikey and retry.`;
 
-  return { score, summary, strengths, improvements, detailedFeedback };
+  // Parse candidate responses for per-question analysis
+  const extractedAnswers = extractUserAnswersFromTranscript(transcript, questions.length);
+  const questionAnalysis = questions.map((q, i) => {
+    const ans = extractedAnswers[i] || (didNothing ? "No answer recorded." : "Answer recorded in transcript.");
+    return {
+      question: q,
+      userAnswer: ans,
+      rating: didNothing ? "Unanswered" : ans.length > 20 ? "Good" : "Needs Improvement",
+      feedback: didNothing
+        ? "No response was recorded for this question."
+        : "Candidate responded. Detailed AI coaching feedback will generate when GEMINI_API_KEY is active.",
+    };
+  });
+
+  return { score, summary, strengths, improvements, detailedFeedback, questionAnalysis };
 }
 
 export async function POST(req: Request) {
@@ -110,8 +155,8 @@ export async function POST(req: Request) {
       role,
       type,
       difficulty,
-      questions: Array.isArray(questions) ? questions : [],
-      transcript: typeof transcript === "string" ? transcript : "",
+      questions: qs,
+      transcript: tx,
     });
 
     const raw = await geminiGenerateText(apiKey, prompt);
@@ -125,11 +170,34 @@ export async function POST(req: Request) {
       detailedFeedback?: string;
       hiringSignal?: string;
       questionAnalysis?: Array<{
-        question: string;
-        rating: string;
-        feedback: string;
+        question?: string;
+        userAnswer?: string;
+        rating?: string;
+        feedback?: string;
       }>;
     };
+
+    // Extract user answers from transcript if Gemini didn't return them for some items
+    const extractedAnswers = extractUserAnswersFromTranscript(tx, qs.length);
+
+    // Normalize questionAnalysis array
+    const rawAnalysis = Array.isArray(parsed.questionAnalysis) ? parsed.questionAnalysis : [];
+    const questionAnalysis = qs.map((qText, index) => {
+      const matchedItem = rawAnalysis.find(
+        (item) => item.question && item.question.toLowerCase().includes(qText.slice(0, 20).toLowerCase())
+      ) || rawAnalysis[index];
+
+      const userAnswer = matchedItem?.userAnswer || extractedAnswers[index] || "No answer recorded.";
+      const rating = matchedItem?.rating || (userAnswer.length > 25 ? "Good" : "Needs Improvement");
+      const feedback = matchedItem?.feedback || "Evaluation complete based on interview transcript.";
+
+      return {
+        question: qText,
+        userAnswer,
+        rating,
+        feedback,
+      };
+    });
 
     return NextResponse.json({
       score: typeof parsed.score === "number" ? Math.min(100, Math.max(0, parsed.score)) : 0,
@@ -138,7 +206,7 @@ export async function POST(req: Request) {
       improvements: Array.isArray(parsed.improvements) ? parsed.improvements : [],
       detailedFeedback: parsed.detailedFeedback ?? "",
       hiringSignal: parsed.hiringSignal ?? null,
-      questionAnalysis: Array.isArray(parsed.questionAnalysis) ? parsed.questionAnalysis : [],
+      questionAnalysis,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown error";
@@ -154,8 +222,6 @@ export async function POST(req: Request) {
 
     if (isQuotaOrAuth) {
       console.warn("[API] Returning fallback feedback due to Gemini unavailability");
-      const qs = Array.isArray(questions) ? questions : [];
-      const tx = typeof transcript === "string" ? transcript : "";
       return NextResponse.json(buildFallbackFeedback(qs, tx, role));
     }
 

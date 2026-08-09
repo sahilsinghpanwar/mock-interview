@@ -140,6 +140,14 @@ Return ONLY a valid JSON object. No markdown. No explanation outside JSON. Exact
     "<2–4 specific, actionable gaps — what they said wrong, what they missed, and what the correct answer/approach should have been>",
     "..."
   ],
-  "detailedFeedback": "<6-10 sentences: go deep — per-question analysis where possible, technical correctness assessment, communication quality, confidence observations, overall hiring decision rationale, and one precise action the candidate should take before their next interview>"
+  "detailedFeedback": "<6-10 sentences: go deep — per-question analysis where possible, technical correctness assessment, communication quality, confidence observations, overall hiring decision rationale, and one precise action the candidate should take before their next interview>",
+  "questionAnalysis": [
+    {
+      "question": "<exact text of question 1 asked>",
+      "userAnswer": "<summary of candidate's spoken answer to this specific question, or 'No answer provided' if skipped>",
+      "rating": "<'Excellent' | 'Good' | 'Needs Improvement' | 'Unanswered'>",
+      "feedback": "<1-2 sentences of specific feedback for this question, highlighting what was good and what was missing or incorrect>"
+    }
+  ]
 }`;
 }
