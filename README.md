@@ -14,7 +14,7 @@
 
 ## 🚀 Live Demo
 
-🌐 **Hosted Application**: [https://mock-interview-azure-rho.vercel.app](https://mock-interview-azure-rho.vercel.app)
+🌐 **Hosted Application**: [https://mock-interview-azure-rho.vercel.app](https://mock-interview-seven-swart.vercel.app)
 
 ---
 
