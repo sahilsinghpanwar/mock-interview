@@ -20,7 +20,7 @@ type Props = {
 
 const MIN_CALL_DURATION_SECONDS = 30;
 
-// Timer Hook
+// ─── Timer Hook ───────────────────────────────────────────────────────────────
 
 function useTimer(active: boolean) {
   const [seconds, setSeconds] = useState(0);
@@ -43,25 +43,34 @@ function useTimer(active: boolean) {
   return { formatted: `${mins}:${secs.toString().padStart(2, "0")}`, seconds };
 }
 
-// Component
+// ─── Component ────────────────────────────────────────────────────────────────
 
-export default function VoiceInterviewPanel({
-  interview,
-  onFeedbackSaved,
-}: Props) {
+export default function VoiceInterviewPanel({ interview, onFeedbackSaved }: Props) {
   const { start, stop } = useVapiInterview();
+
   const [active, setActive] = useState(false);
   const [transcript, setTranscript] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+
+  // Refs — used inside async callbacks to avoid stale closures
   const finalizedRef = useRef(false);
   const transcriptRef = useRef("");
   const callStartTimeRef = useRef<number>(0);
+  // Tracks whether stop() was triggered manually by the user (vs Vapi ending the call)
+  const manualEndRef = useRef(false);
+
   const timer = useTimer(active);
 
+  /**
+   * Core finalization logic — generates feedback and persists to Firebase.
+   * Guards against double-execution via `finalizedRef`.
+   */
   const finalizeSession = useCallback(
     async (rawTranscript: string) => {
+      // Guard: only run once per session
       if (finalizedRef.current) return;
+      finalizedRef.current = true;
 
       const elapsed = (Date.now() - callStartTimeRef.current) / 1000;
       const hasContent = rawTranscript.trim().length > 20;
@@ -69,9 +78,10 @@ export default function VoiceInterviewPanel({
       if (elapsed < MIN_CALL_DURATION_SECONDS && !hasContent) {
         setError(
           `The call ended too quickly (${Math.round(elapsed)}s) with no meaningful conversation. ` +
-          `Please try again — make sure your microphone is working and wait for the interviewer to ask questions.`
+            `Please try again — make sure your microphone is working and wait for the interviewer to ask questions.`
         );
         setActive(false);
+        finalizedRef.current = false;
         return;
       }
 
@@ -80,14 +90,16 @@ export default function VoiceInterviewPanel({
           "No transcript was captured. Please check your microphone permissions and try again."
         );
         setActive(false);
+        finalizedRef.current = false;
         return;
       }
 
-      finalizedRef.current = true;
       setBusy(true);
       setError("");
 
       try {
+        console.log("[Interview] Requesting AI feedback...");
+
         const res = await fetch("/api/gemini/feedback", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -101,9 +113,7 @@ export default function VoiceInterviewPanel({
         });
 
         if (!res.ok) {
-          const data = (await res.json().catch(() => ({}))) as {
-            error?: string;
-          };
+          const data = (await res.json().catch(() => ({}))) as { error?: string };
           throw new Error(data.error ?? "Feedback request failed");
         }
 
@@ -121,19 +131,20 @@ export default function VoiceInterviewPanel({
           }>;
         };
 
-        // Merge per-question candidate answers and ratings into interview questions array
+        console.log("[Interview] Feedback received, saving to Firebase...");
+
+        // Merge per-question candidate answers, ratings, and feedback into questions array
         const updatedQuestions = interview.questions.map((q, idx) => {
           const analysis = data.questionAnalysis?.[idx];
           return {
             ...q,
-            userAnswer: analysis?.userAnswer || "",
-            rating: analysis?.rating || "",
-            feedback: analysis?.feedback || "",
+            userAnswer: analysis?.userAnswer ?? "",
+            rating: analysis?.rating ?? "",
+            feedback: analysis?.feedback ?? "",
           };
         });
 
-        // Save complete metrics, answers, and question analysis to Firebase Firestore
-        await saveInterviewFeedback(interview.id, {
+        const feedbackPayload = {
           score: data.score,
           summary: data.summary,
           detailedFeedback: data.detailedFeedback,
@@ -142,8 +153,12 @@ export default function VoiceInterviewPanel({
           transcriptSummary: rawTranscript.slice(0, 12000),
           questions: updatedQuestions,
           questionAnalysis: data.questionAnalysis,
-        });
+        };
 
+        // Save to Firebase Firestore — throws on failure with a clear message
+        await saveInterviewFeedback(interview.id, feedbackPayload);
+
+        // Update local UI state
         onFeedbackSaved({
           status: "completed",
           score: data.score,
@@ -156,8 +171,11 @@ export default function VoiceInterviewPanel({
           questionAnalysis: data.questionAnalysis,
         });
       } catch (e) {
+        // Allow retry if save failed
         finalizedRef.current = false;
-        const msg = e instanceof Error ? e.message : "Failed to save feedback";
+        const msg =
+          e instanceof Error ? e.message : "Failed to save feedback. Please try again.";
+        console.error("[Interview] finalizeSession error:", msg);
         setError(msg);
       } finally {
         setBusy(false);
@@ -167,6 +185,9 @@ export default function VoiceInterviewPanel({
     [interview, onFeedbackSaved]
   );
 
+  /**
+   * Starts the Vapi voice call and wires up all event handlers.
+   */
   async function handleStart() {
     if (!isVapiConfigured()) {
       setError(
@@ -175,12 +196,14 @@ export default function VoiceInterviewPanel({
       return;
     }
 
+    // Reset all session state
     setError("");
-    finalizedRef.current = false;
-    transcriptRef.current = "";
     setTranscript("");
-    setActive(true);
+    finalizedRef.current = false;
+    manualEndRef.current = false;
+    transcriptRef.current = "";
     callStartTimeRef.current = Date.now();
+    setActive(true);
 
     await updateInterviewStatus(interview.id, "in-progress");
 
@@ -189,8 +212,12 @@ export default function VoiceInterviewPanel({
         transcriptRef.current = full;
         setTranscript(full);
       },
+      // `onCallEnd` fires when Vapi ends the call (timeout, natural end, etc.)
+      // Only run if the user didn't manually end the call (to avoid double-finalize)
       onCallEnd: (full) => {
-        void finalizeSession(full || transcriptRef.current);
+        if (!manualEndRef.current) {
+          void finalizeSession(full || transcriptRef.current);
+        }
       },
       onError: (msg) => {
         setError(msg);
@@ -199,12 +226,15 @@ export default function VoiceInterviewPanel({
     });
   }
 
+  /**
+   * Manually ends the call and triggers finalization.
+   * Sets `manualEndRef` so `onCallEnd` callback doesn't double-fire.
+   */
   async function handleEnd() {
-    transcriptRef.current = transcript;
+    manualEndRef.current = true;
+    const currentTranscript = transcriptRef.current;
     await stop();
-    if (!finalizedRef.current) {
-      void finalizeSession(transcriptRef.current);
-    }
+    void finalizeSession(currentTranscript);
   }
 
   const configured = isVapiConfigured();
@@ -222,16 +252,18 @@ export default function VoiceInterviewPanel({
       <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_right,#80808008_1px,transparent_1px),linear-gradient(to_bottom,#80808008_1px,transparent_1px)] bg-[size:20px_20px] opacity-35 dark:opacity-20" />
 
       <div className="relative z-10 space-y-5">
-        
+
         {/* Panel Header */}
         <div className="flex items-center justify-between gap-3 border-b border-dashed border-neutral-200 dark:border-neutral-900 pb-4">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-lg bg-neutral-100 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 flex items-center justify-center shrink-0">
               <Mic className="w-4 h-4 text-violet-650 dark:text-violet-400" />
             </div>
-            <h2 className="text-xs font-extrabold text-neutral-900 dark:text-white uppercase tracking-wider">Voice Transceiver Interface</h2>
+            <h2 className="text-xs font-extrabold text-neutral-900 dark:text-white uppercase tracking-wider">
+              Voice Transceiver Interface
+            </h2>
           </div>
-          
+
           {active && (
             <div className="flex items-center gap-3">
               <AudioWaveform active={active} barCount={6} />
@@ -243,20 +275,34 @@ export default function VoiceInterviewPanel({
           )}
         </div>
 
-        {/* Configuration notice */}
+        {/* Vapi configuration notice */}
         {!configured && (
           <div className="flex items-start gap-2.5 p-3.5 rounded-2xl bg-amber-500/5 border border-dashed border-amber-500/20 text-amber-600 dark:text-amber-400">
             <AlertTriangle className="w-4.5 h-4.5 shrink-0 mt-0.5" />
             <div>
-              <p className="text-xs font-extrabold uppercase tracking-wider">Configuration parameters missing</p>
+              <p className="text-xs font-extrabold uppercase tracking-wider">
+                Configuration parameters missing
+              </p>
               <p className="text-[10px] text-neutral-600 dark:text-neutral-400 font-light leading-relaxed mt-0.5">
-                Add <code className="text-[11px] font-mono text-neutral-900 dark:text-white">NEXT_PUBLIC_VAPI_WEB_TOKEN</code> and <code className="text-[11px] font-mono text-neutral-900 dark:text-white">NEXT_PUBLIC_VAPI_ASSISTANT_ID</code> to your local environment file (<code className="text-[11px] font-mono text-neutral-900 dark:text-white">.env.local</code>), then restart the Next.js dev server.
+                Add{" "}
+                <code className="text-[11px] font-mono text-neutral-900 dark:text-white">
+                  NEXT_PUBLIC_VAPI_WEB_TOKEN
+                </code>{" "}
+                and{" "}
+                <code className="text-[11px] font-mono text-neutral-900 dark:text-white">
+                  NEXT_PUBLIC_VAPI_ASSISTANT_ID
+                </code>{" "}
+                to your{" "}
+                <code className="text-[11px] font-mono text-neutral-900 dark:text-white">
+                  .env.local
+                </code>
+                , then restart the Next.js dev server.
               </p>
             </div>
           </div>
         )}
 
-        {/* Buttons Controls */}
+        {/* Button Controls */}
         <div className="flex flex-wrap gap-3">
           <Button
             type="button"
@@ -274,7 +320,11 @@ export default function VoiceInterviewPanel({
             ) : (
               <Mic className="w-4 h-4" />
             )}
-            {busy ? "Generating Feedback Report…" : active ? "Active Connection Established" : "Initiate Transceiver"}
+            {busy
+              ? "Generating Feedback Report…"
+              : active
+              ? "Active Connection Established"
+              : "Initiate Transceiver"}
           </Button>
 
           {active && (
@@ -304,7 +354,9 @@ export default function VoiceInterviewPanel({
           <div className="flex flex-col items-center justify-center py-10 gap-3 border border-dashed border-neutral-200 dark:border-neutral-900 bg-neutral-50/40 dark:bg-neutral-900/10 rounded-2xl">
             <Loader2 className="w-6 h-6 animate-spin text-violet-650 dark:text-violet-400" />
             <div className="text-center space-y-1">
-              <p className="text-xs font-extrabold text-neutral-900 dark:text-white uppercase tracking-wider">Analyzing Interview Audio Telemetry</p>
+              <p className="text-xs font-extrabold text-neutral-900 dark:text-white uppercase tracking-wider">
+                Analyzing Interview Audio Telemetry
+              </p>
               <p className="text-[10px] text-neutral-605 dark:text-neutral-400 font-light">
                 Mock.ai is evaluating performance grade parameters… usually compiles in 5–10s.
               </p>

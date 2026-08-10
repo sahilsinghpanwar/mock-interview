@@ -56,11 +56,17 @@ async function saveUserToFirestore(
         role: "user",
       };
       await setDoc(userRef, profile);
+      console.log("[Firebase] New user profile created");
     } else {
       await setDoc(userRef, { updatedAt: serverTimestamp() }, { merge: true });
+      console.log("[Firebase] User profile updated");
     }
   } catch (error) {
-    console.error("Firestore error:", error);
+    const code = (error as Record<string, unknown>)?.code;
+    const msg = (error as Record<string, unknown>)?.message;
+    console.error(
+      `[Firebase] saveUserToFirestore failed — code: ${String(code ?? "unknown")}, message: ${String(msg ?? error)}`
+    );
   }
 }
 
@@ -86,7 +92,7 @@ export async function signUp(
       userId: credential.user.uid,
     };
   } catch (error: unknown) {
-    console.error("Sign-up error:", error);
+    console.error("[Firebase] Sign-up error:", error);
     return { success: false, message: getFirebaseErrorMessage(error) };
   }
 }
@@ -107,7 +113,7 @@ export async function signIn(
       userId: credential.user.uid,
     };
   } catch (error: unknown) {
-    console.error("Sign-in error:", error);
+    console.error("[Firebase] Sign-in error:", error);
     return { success: false, message: getFirebaseErrorMessage(error) };
   }
 }
@@ -135,7 +141,7 @@ export async function signInWithGoogle(): Promise<AuthResult> {
       userId: credential.user.uid,
     };
   } catch (error: unknown) {
-    console.error("Google sign-in error:", error);
+    console.error("[Firebase] Google sign-in error:", error);
     if (error !== null && typeof error === "object" && "code" in error) {
       const code = (error as { code: string }).code;
       if (code === "auth/popup-blocked" || code === "auth/popup-closed-by-user") {
@@ -166,7 +172,7 @@ export async function signInWithGithub(): Promise<AuthResult> {
       userId: credential.user.uid,
     };
   } catch (error: unknown) {
-    console.error("GitHub sign-in error:", error);
+    console.error("[Firebase] GitHub sign-in error:", error);
     if (error !== null && typeof error === "object" && "code" in error) {
       const code = (error as { code: string }).code;
       if (code === "auth/popup-blocked" || code === "auth/popup-closed-by-user") {
@@ -193,7 +199,7 @@ export async function handleRedirectResult(): Promise<void> {
       await saveUserToFirestore(credential);
     }
   } catch (error) {
-    console.error("Error handling redirect result:", error);
+    console.error("[Firebase] Error handling redirect result:", error);
   }
 }
 
