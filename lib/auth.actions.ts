@@ -56,10 +56,10 @@ async function saveUserToFirestore(
         role: "user",
       };
       await setDoc(userRef, profile);
-      console.log(`[Firebase] New user profile created: ${user.uid}`);
+      console.log("[Firebase] New user profile created");
     } else {
       await setDoc(userRef, { updatedAt: serverTimestamp() }, { merge: true });
-      console.log(`[Firebase] User profile updated: ${user.uid}`);
+      console.log("[Firebase] User profile updated");
     }
   } catch (error) {
     const code = (error as Record<string, unknown>)?.code;

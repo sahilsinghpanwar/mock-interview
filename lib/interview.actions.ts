@@ -400,15 +400,8 @@ export async function updateInterviewStatus(
     console.log(`[Firebase] Interview ${interviewId} status → ${status}`);
   } catch (error) {
     const message = getFirestoreErrorMessage(error);
-    const code = (error as Record<string, unknown>)?.code as string | undefined;
-
-    if (code === "not-found") {
-      // Document doesn't exist yet — create it with merge
-      console.warn(`[Firebase] updateInterviewStatus: doc not found, using setDoc merge.`);
-      await setDoc(ref, { status }, { merge: true });
-    } else {
-      console.error("[Firebase] updateInterviewStatus failed:", message, error);
-    }
+    console.error("[Firebase] updateInterviewStatus failed:", message, error);
+    throw new Error(message);
   }
 }
 
@@ -450,23 +443,12 @@ export async function saveInterviewFeedback(
   });
 
   try {
-    // First try updateDoc (document must already exist)
     await updateDoc(ref, updateData);
     console.log(`[Firebase] ✅ Feedback saved successfully for interview: ${interviewId}`);
   } catch (error) {
-    const code = (error as Record<string, unknown>)?.code as string | undefined;
-
-    if (code === "not-found") {
-      // Document was never created — use setDoc to create it fresh
-      console.warn(`[Firebase] Interview doc not found, creating with setDoc for: ${interviewId}`);
-      await setDoc(ref, { id: interviewId, ...updateData });
-      console.log(`[Firebase] ✅ Feedback saved (via setDoc) for interview: ${interviewId}`);
-    } else {
-      const message = getFirestoreErrorMessage(error);
-      console.error(`[Firebase] ❌ saveInterviewFeedback failed for ${interviewId}:`, message, error);
-      // Re-throw with a clear, user-readable message
-      throw new Error(message);
-    }
+    const message = getFirestoreErrorMessage(error);
+    console.error(`[Firebase] ❌ saveInterviewFeedback failed for ${interviewId}:`, message, error);
+    throw new Error(message);
   }
 }
 

@@ -23,10 +23,11 @@ const missingKeys = Object.entries(firebaseConfig)
   .map(([k]) => `NEXT_PUBLIC_${k.replace(/([A-Z])/g, "_$1").toUpperCase()}`);
 
 if (missingKeys.length > 0) {
-  console.error(
+  const errorMessage =
     `[Firebase] ❌ Missing environment variables: ${missingKeys.join(", ")}. ` +
-      "Check your .env.local file."
-  );
+    "Check your .env.local file.";
+  console.error(errorMessage);
+  throw new Error(errorMessage);
 }
 
 // ─── Initialization ───────────────────────────────────────────────────────────
