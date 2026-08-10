@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { FaRobot, FaGoogle, FaGithub } from "react-icons/fa";
+import { FaRobot } from "react-icons/fa";
 import { Eye, EyeOff, Loader2, AlertCircle, CheckCircle2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -20,10 +20,9 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 
-import { signIn, signUp, signInWithGoogle, signInWithGithub } from "@/lib/auth.actions";
+import { signIn, signUp } from "@/lib/auth.actions";
 import {
   signInSchema,
   signUpSchema,
@@ -157,7 +156,6 @@ export default function AuthForm({ type }: AuthFormProps) {
     type: "error" | "success";
     text: string;
   } | null>(null);
-  const [oauthLoading, setOauthLoading] = useState<"google" | "github" | null>(null);
 
   //  Sign-In Form 
 
@@ -170,7 +168,7 @@ export default function AuthForm({ type }: AuthFormProps) {
 
   const signUpForm = useForm<SignUpFormValues>({
     resolver: zodResolver(signUpSchema),
-    defaultValues: { name: "", email: "", password: "", confirmPassword: "" },
+    defaultValues: { name: "", email: "", password: "" },
   });
 
   const passwordValue = useWatch({ control: signUpForm.control, name: "password" });
@@ -199,32 +197,6 @@ export default function AuthForm({ type }: AuthFormProps) {
     } else {
       setServerMessage({ type: "error", text: result.message });
     }
-  }
-
-  async function handleGoogleSignIn() {
-    setServerMessage(null);
-    setOauthLoading("google");
-    const result = await signInWithGoogle();
-    if (result.success) {
-      router.push("/dashboard");
-      router.refresh();
-    } else {
-      setServerMessage({ type: "error", text: result.message });
-    }
-    setOauthLoading(null);
-  }
-
-  async function handleGithubSignIn() {
-    setServerMessage(null);
-    setOauthLoading("github");
-    const result = await signInWithGithub();
-    if (result.success) {
-      router.push("/dashboard");
-      router.refresh();
-    } else {
-      setServerMessage({ type: "error", text: result.message });
-    }
-    setOauthLoading(null);
   }
 
   const isLoading = isSignIn
@@ -392,20 +364,6 @@ export default function AuthForm({ type }: AuthFormProps) {
               <PasswordStrength password={passwordValue} />
             </FormField>
 
-            <FormField
-              id="confirmPassword"
-              label="Confirm password"
-              error={signUpForm.formState.errors.confirmPassword?.message}
-            >
-              <PasswordInput
-                id="confirmPassword"
-                placeholder="••••••••"
-                autoComplete="new-password"
-                error={!!signUpForm.formState.errors.confirmPassword}
-                {...signUpForm.register("confirmPassword")}
-              />
-            </FormField>
-
             <Button type="submit" className="w-full mt-2" disabled={isLoading}>
               {isLoading ? (
                 <>
@@ -420,46 +378,8 @@ export default function AuthForm({ type }: AuthFormProps) {
         )}
       </CardContent>
 
-      {/* OAuth + Footer */}
+      {/* Footer */}
       <CardFooter className="flex-col gap-4 pt-2">
-        <div className="relative w-full">
-          <Separator />
-          <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-card px-3 text-xs text-muted-foreground">
-            or continue with
-          </span>
-        </div>
-
-        <div className="grid grid-cols-2 gap-3 w-full">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={handleGoogleSignIn}
-            disabled={isLoading || oauthLoading !== null}
-            className="gap-2"
-          >
-            {oauthLoading === "google" ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <FaGoogle className="h-4 w-4" />
-            )}
-            Google
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={handleGithubSignIn}
-            disabled={isLoading || oauthLoading !== null}
-            className="gap-2"
-          >
-            {oauthLoading === "github" ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <FaGithub className="h-4 w-4" />
-            )}
-            GitHub
-          </Button>
-        </div>
-
         <p className="text-sm text-muted-foreground text-center">
           {isSignIn ? (
             <>

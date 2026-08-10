@@ -433,7 +433,7 @@ export async function updateInterviewStatus(
 ): Promise<void> {
   const ref = doc(db, "interviews", interviewId);
   try {
-    await updateDoc(ref, { status });
+    await setDoc(ref, { status }, { merge: true });
     console.log(`[Firebase] Interview ${interviewId} status → ${status}`);
   } catch (error) {
     const message = getFirestoreErrorMessage(error);
@@ -496,7 +496,8 @@ export async function saveInterviewFeedback(
   });
 
   try {
-    await updateDoc(ref, updateData);
+    const sanitizedData = sanitizeForFirestore(updateData);
+    await setDoc(ref, sanitizedData, { merge: true });
     console.log(`[Firebase] ✅ Feedback saved successfully for interview: ${interviewId}`);
   } catch (error) {
     const message = getFirestoreErrorMessage(error);
