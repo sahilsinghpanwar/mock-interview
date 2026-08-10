@@ -35,11 +35,23 @@ export default function DashboardPage() {
   const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
-    if (!user) return;
-    getUserInterviews(user.uid).then((data: Interview[]) => {
-      setInterviews(data);
+    if (!user) {
+      // User is not logged in — stop showing loader
       setLoadingInterviews(false);
-    });
+      return;
+    }
+
+    setLoadingInterviews(true);
+    getUserInterviews(user.uid)
+      .then((data: Interview[]) => {
+        setInterviews(data);
+      })
+      .catch((err) => {
+        console.error("[Dashboard] Failed to load interviews:", err);
+      })
+      .finally(() => {
+        setLoadingInterviews(false);
+      });
   }, [user]);
 
   async function handleSignOut() {
