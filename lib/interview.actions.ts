@@ -285,6 +285,39 @@ async function generateQuestions(
   }));
 }
 
+/**
+ * Recursively sanitizes objects before saving to Firestore by removing undefined values,
+ * replacing them with empty strings or safe defaults so Firestore setDoc/updateDoc never fails.
+ */
+function sanitizeForFirestore<T>(data: T): T {
+  if (data === undefined || data === null) {
+    return "" as unknown as T;
+  }
+
+  if (Array.isArray(data)) {
+    return data.map((item) => sanitizeForFirestore(item)) as unknown as T;
+  }
+
+  if (
+    typeof data === "object" &&
+    data !== null &&
+    !(data instanceof Date) &&
+    !(data instanceof Timestamp)
+  ) {
+    const cleaned: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(data as Record<string, unknown>)) {
+      if (value !== undefined) {
+        cleaned[key] = sanitizeForFirestore(value);
+      } else {
+        cleaned[key] = "";
+      }
+    }
+    return cleaned as T;
+  }
+
+  return data;
+}
+
 // ─── CRUD Actions ─────────────────────────────────────────────────────────────
 
 /**
@@ -304,18 +337,18 @@ export async function createInterview(
 
     const interviewData = {
       id: ref.id,
-      userId,
-      role,
-      type,
-      difficulty,
-      focusArea,
-      numQuestions,
+      userId: userId || "",
+      role: role || "",
+      type: type || "",
+      difficulty: difficulty || "",
+      focusArea: focusArea || "General",
+      numQuestions: numQuestions || questions.length,
       questions,
       status: "pending",
       createdAt: new Date().toISOString(),
     };
 
-    await setDoc(ref, interviewData);
+    await setDoc(ref, sanitizeForFirestore(interviewData));
     console.log(`[Firebase] Interview created: ${ref.id}`);
 
     return {
@@ -325,7 +358,7 @@ export async function createInterview(
     };
   } catch (error) {
     const message = getFirestoreErrorMessage(error);
-    console.error("[Firebase] createInterview failed:", message, error);
+    console.error("[Firebase] createInterview error:", message, error);
     return {
       success: false,
       message: `Failed to create interview: ${message}`,
@@ -334,12 +367,16 @@ export async function createInterview(
 }
 
 /**
- * Fetches a single interview document by ID.
+ * Fetches a single interview document by ID from Firestore.
  */
 export async function getInterview(id: string): Promise<Interview | null> {
   try {
     const snap = await getDoc(doc(db, "interviews", id));
-    if (!snap.exists()) return null;
+    if (!snap.exists()) {
+      console.warn(`[Firebase] getInterview: doc ${id} not found.`);
+      return null;
+    }
+
     return mapDocToInterview(snap.id, snap.data() as Record<string, unknown>);
   } catch (error) {
     console.error("[Firebase] getInterview failed:", getFirestoreErrorMessage(error), error);
@@ -388,7 +425,7 @@ export async function getUserInterviews(userId: string): Promise<Interview[]> {
 
 /**
  * Updates the status field of an interview document.
- * Falls back to `setDoc` merge if `updateDoc` fails with not-found.
+ * @throws {Error} If document is not found or Firestore update fails.
  */
 export async function updateInterviewStatus(
   interviewId: string,
@@ -417,28 +454,44 @@ export async function saveInterviewFeedback(
 ): Promise<void> {
   const ref = doc(db, "interviews", interviewId);
 
+  const cleanQuestions = (payload.questions ?? []).map((q, idx) => ({
+    id: q.id || `q-${idx + 1}`,
+    text: q.text || "",
+    userAnswer: q.userAnswer || "",
+    rating: q.rating || "",
+    feedback: q.feedback || "",
+  }));
+
+  const cleanQuestionAnalysis = (payload.questionAnalysis ?? []).map((qa, idx) => ({
+    questionId: qa.questionId || `q-${idx + 1}`,
+    question: qa.question || "",
+    userAnswer: qa.userAnswer || "",
+    rating: qa.rating || "",
+    feedback: qa.feedback || "",
+  }));
+
   const updateData: Record<string, unknown> = {
-    score: payload.score,
-    feedbackSummary: payload.summary,
-    feedbackDetail: payload.detailedFeedback,
-    strengths: payload.strengths,
-    improvements: payload.improvements,
-    transcriptSummary: payload.transcriptSummary,
+    score: typeof payload.score === "number" ? payload.score : 0,
+    feedbackSummary: payload.summary || "",
+    feedbackDetail: payload.detailedFeedback || "",
+    strengths: Array.isArray(payload.strengths) ? payload.strengths : [],
+    improvements: Array.isArray(payload.improvements) ? payload.improvements : [],
+    transcriptSummary: payload.transcriptSummary || "",
     status: "completed",
   };
 
-  if (payload.questions && payload.questions.length > 0) {
-    updateData.questions = payload.questions;
+  if (cleanQuestions.length > 0) {
+    updateData.questions = cleanQuestions;
   }
 
-  if (payload.questionAnalysis && payload.questionAnalysis.length > 0) {
-    updateData.questionAnalysis = payload.questionAnalysis;
+  if (cleanQuestionAnalysis.length > 0) {
+    updateData.questionAnalysis = cleanQuestionAnalysis;
   }
 
   console.log(`[Firebase] Saving feedback for interview: ${interviewId}`, {
     score: payload.score,
-    questionsCount: payload.questions?.length ?? 0,
-    analysisCount: payload.questionAnalysis?.length ?? 0,
+    questionsCount: cleanQuestions.length,
+    analysisCount: cleanQuestionAnalysis.length,
     transcriptLength: payload.transcriptSummary.length,
   });
 
@@ -469,14 +522,19 @@ export async function deleteInterview(interviewId: string): Promise<boolean> {
 // ─── Formatting Utilities ─────────────────────────────────────────────────────
 
 /**
- * Formats an ISO date string for display (e.g. "Aug 9, 2026").
+ * Formats an ISO date string for display in Indian Standard Time format (e.g. "10 Aug 2026, 9:50 am").
  */
 export function formatInterviewDate(isoString: string): string {
   try {
-    return new Date(isoString).toLocaleDateString("en-US", {
-      month: "short",
+    const d = new Date(isoString);
+    if (isNaN(d.getTime())) return "Unknown date";
+    return d.toLocaleString("en-IN", {
       day: "numeric",
+      month: "short",
       year: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
     });
   } catch {
     return "Unknown date";
